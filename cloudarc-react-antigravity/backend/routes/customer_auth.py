@@ -50,7 +50,7 @@ def customer_place_order(restaurant_id):
     cust = query_db('SELECT * FROM customers WHERE id=?', [g.user_id], one=True)
     
     order_number     = 'CA-' + datetime.datetime.now().strftime('%M%S') # Simple generator
-    platform         = 'CloudArc App'
+    platform         = data.get('source_app') or 'CloudArc App'
     status           = 'received'
     priority         = 'normal'
     customer_name    = data.get('customer_name') or cust['name']

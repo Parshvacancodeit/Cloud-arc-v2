@@ -65,6 +65,8 @@ export const dashboardApi = {
     api.get(`/api/dashboard/recent-orders/${restaurantId}?limit=${limit}`),
   getAlerts: (restaurantId) =>
     api.get(`/api/dashboard/alerts/${restaurantId}`),
+  getPlatformStats: (restaurantId) =>
+    api.get(`/api/dashboard/platform-stats/${restaurantId}`),
 };
 
 // ─── Orders / Kanban ────────────────────────────────────────

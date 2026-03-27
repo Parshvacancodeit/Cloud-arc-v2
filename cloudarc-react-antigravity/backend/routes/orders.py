@@ -7,7 +7,7 @@ from auth_middleware import require_auth
 
 orders_bp = Blueprint('orders', __name__)
 
-STATUSES = ['received', 'preparing', 'ready', 'dispatched', 'completed']
+STATUSES = ['received', 'preparing', 'ready', 'dispatched', 'completed', 'cancelled']
 
 
 def _gen_order_number():

@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_number     TEXT NOT NULL,
     platform         TEXT NOT NULL DEFAULT 'Direct',
     status           TEXT NOT NULL DEFAULT 'received'
-                        CHECK(status IN ('received','preparing','ready','dispatched','completed')),
+                        CHECK(status IN ('received','preparing','ready','dispatched','completed','cancelled')),
     priority         TEXT NOT NULL DEFAULT 'normal'
                         CHECK(priority IN ('low','normal','high','urgent')),
     customer_name    TEXT NOT NULL DEFAULT '',

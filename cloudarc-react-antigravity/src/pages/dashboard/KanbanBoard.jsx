@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiPlus, FiClock, FiPackage, FiMapPin, FiPhone, FiX, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiClock, FiPackage, FiMapPin, FiPhone, FiX, FiRefreshCw, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
 import { ordersApi } from '../../services/api';
 import '../../styles/KanbanBoard.css';
 
-const EMPTY_BOARD = { received: [], preparing: [], ready: [], dispatched: [], completed: [] };
+const EMPTY_BOARD = { received: [], preparing: [], ready: [], dispatched: [], completed: [], cancelled: [] };
 
 const KanbanBoard = () => {
   const restaurantId = localStorage.getItem('restaurant_id');
@@ -27,6 +27,7 @@ const KanbanBoard = () => {
         ready: data.ready || [],
         dispatched: data.dispatched || [],
         completed: data.completed || [],
+        cancelled: data.cancelled || [],
       });
     } catch (err) {
       setError(err.message || 'Failed to load orders');
@@ -77,6 +78,34 @@ const KanbanBoard = () => {
       await ordersApi.updateStatus(order.id, targetColumn);
     } catch {
       // Revert on failure
+      fetchOrders();
+    }
+  };
+
+  const handleStatusUpdate = async (order, nextStatus) => {
+    // Optimistic UI update
+    setOrders(prev => {
+      const next = { ...prev };
+      const currentStatus = order.status;
+      
+      // Defensive checks to prevent crashing
+      if (next[currentStatus]) {
+        next[currentStatus] = next[currentStatus].filter(o => o.id !== order.id);
+      }
+      if (next[nextStatus]) {
+        next[nextStatus] = [...next[nextStatus], { ...order, status: nextStatus }];
+      } else {
+        // If nextStatus isn't a column we track in state, just remove from current
+        console.warn(`Status ${nextStatus} not found in state board`);
+      }
+      
+      return next;
+    });
+
+    try {
+      await ordersApi.updateStatus(order.id, nextStatus);
+    } catch (err) {
+      console.error('Failed to update status:', err);
       fetchOrders();
     }
   };
@@ -189,23 +218,63 @@ const KanbanBoard = () => {
 
                   {order.assigned_to && <div className="assigned-badge">{order.assigned_to}</div>}
 
+                  {column.id === 'received' && (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                      <button 
+                        className="btn-complete" 
+                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'preparing'); }}
+                        style={{ flex: 1, padding: '8px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Accept
+                      </button>
+                      <button 
+                        className="btn-archive" 
+                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'cancelled'); }}
+                        style={{ flex: 1, padding: '8px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+
+                  {column.id === 'preparing' && (
+                    <button 
+                      className="btn-complete" 
+                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'ready'); }}
+                      style={{ marginTop: '12px', padding: '8px', background: '#FF5722', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
+                    >
+                      Mark as Ready
+                    </button>
+                  )}
+
+                  {column.id === 'ready' && (
+                    <button 
+                      className="btn-complete" 
+                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'dispatched'); }}
+                      style={{ marginTop: '12px', padding: '8px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
+                    >
+                      Dispatch Order
+                    </button>
+                  )}
+
                   {column.id === 'dispatched' && (
                     <button 
                       className="btn-complete" 
-                      onClick={(e) => { e.stopPropagation(); handleDrop({ preventDefault: () => {} }, 'completed', order); }}
-                      style={{ marginTop: '12px', padding: '6px 12px', background: '#10B981', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
+                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'completed'); }}
+                      style={{ marginTop: '12px', padding: '8px', background: '#8B5CF6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
                     >
                       Complete Order
                     </button>
                   )}
                   {column.id === 'completed' && (
-                    <button 
-                      className="btn-archive" 
-                      onClick={(e) => { e.stopPropagation(); ordersApi.delete(order.id).then(fetchOrders); }}
-                      style={{ marginTop: '12px', padding: '6px 12px', background: 'rgba(255,255,255,0.05)', color: '#64748B', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
-                    >
-                      Archive / End
-                    </button>
+                    <div style={{ marginTop: '12px', textAlign: 'center', color: '#10B981', fontSize: '12px', fontWeight: '700', background: 'rgba(16,185,129,0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <FiCheckCircle /> Delivered
+                    </div>
+                  )}
+                  {column.id === 'cancelled' && (
+                    <div style={{ marginTop: '12px', textAlign: 'center', color: '#EF4444', fontSize: '12px', fontWeight: '700', background: 'rgba(239,68,68,0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <FiX /> Cancelled
+                    </div>
                   )}
                 </div>
               ))}

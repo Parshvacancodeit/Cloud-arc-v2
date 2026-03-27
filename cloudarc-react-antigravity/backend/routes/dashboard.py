@@ -125,3 +125,21 @@ def get_alerts(restaurant_id):
         [restaurant_id]
     )
     return jsonify([dict(r) for r in rows])
+
+
+@dashboard_bp.route('/api/dashboard/platform-stats/<int:restaurant_id>', methods=['GET'])
+@require_auth
+def get_platform_stats(restaurant_id):
+    """Returns order count and revenue broken down by platform for today."""
+    today_start, today_end = _today_range()
+    rows = query_db(
+        '''SELECT platform, 
+                  COUNT(*) as count, 
+                  COALESCE(SUM(total_amount), 0) as revenue
+           FROM orders 
+           WHERE restaurant_id=? AND created_at BETWEEN ? AND ?
+           GROUP BY platform
+           ORDER BY count DESC''',
+        [restaurant_id, today_start, today_end]
+    )
+    return jsonify([dict(r) for r in rows])

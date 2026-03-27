@@ -21,6 +21,7 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 BACKEND="$ROOT/cloudarc-react-antigravity/backend"
 RESTAURANT="$ROOT/cloudarc-react-antigravity"
 CUSTOMER="$ROOT/cloudarc-customer-antigravity"
+PARTNER="$ROOT/cloudarc-partner-antigravity"
 
 echo "🚀 Starting CloudArc Ecosystem..."
 
@@ -37,7 +38,12 @@ npm run dev > /dev/null 2>&1 &
 # 3. Start Customer App
 echo "🥘 Starting Customer App (Vite) on :5173..."
 cd "$CUSTOMER"
-npm run dev &
+npm run dev > /dev/null 2>&1 &
+
+# 4. Start Partner App
+echo "🟣 Starting Partner App (Vite) on :5174..."
+cd "$PARTNER"
+npm run dev > /dev/null 2>&1 &
 
 # Wait for all processes
 echo ""
@@ -45,6 +51,7 @@ echo "✅ All services are starting up!"
 echo "------------------------------------------------"
 echo "📍 Restaurant POS: http://localhost:3000"
 echo "📍 Customer App:   http://localhost:5173"
+echo "📍 Partner App:    http://localhost:5174"
 echo "📍 Backend API:    http://localhost:5001/api/health"
 echo "------------------------------------------------"
 echo "Press Ctrl+C to stop everything."

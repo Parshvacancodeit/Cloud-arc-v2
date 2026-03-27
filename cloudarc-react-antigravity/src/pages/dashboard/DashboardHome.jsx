@@ -10,6 +10,7 @@ const DashboardHome = () => {
   const kitchenName = localStorage.getItem('kitchen_name') || 'Your Kitchen';
 
   const [stats, setStats] = useState(null);
+  const [platformStats, setPlatformStats] = useState([]);
   const [recentOrders, setRecentOrders] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,12 +20,14 @@ const DashboardHome = () => {
     setLoading(true);
     setError(null);
     try {
-      const [statsData, ordersData, alertsData] = await Promise.all([
+      const [statsData, platformData, ordersData, alertsData] = await Promise.all([
         dashboardApi.getStats(restaurantId),
+        dashboardApi.getPlatformStats(restaurantId),
         dashboardApi.getRecentOrders(restaurantId, 5),
         dashboardApi.getAlerts(restaurantId),
       ]);
       setStats(statsData);
+      setPlatformStats(platformData);
       setRecentOrders(ordersData);
       setAlerts(alertsData);
     } catch (err) {
@@ -170,6 +173,47 @@ const DashboardHome = () => {
             <h3>{action.title}</h3>
             <p>{action.description}</p>
             <div className="action-arrow">→</div>
+          </div>
+        ))}
+      </div>
+
+      {/* App Source Distribution */}
+      <div className="section-header" style={{ marginTop: '24px' }}>
+        <h2>App Source Distribution</h2>
+        <p>Orders coming from different customer applications</p>
+      </div>
+
+      <div className="platform-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+        {platformStats.length === 0 ? (
+          <div className="stat-card" style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center', color: '#94A3B8' }}>
+            <FiPackage size={32} style={{ marginBottom: '12px', opacity: 0.5 }} />
+            <p>No orders recorded yet today</p>
+          </div>
+        ) : platformStats.map((p, idx) => (
+          <div key={idx} className="stat-card" style={{ borderLeft: `4px solid ${p.platform.includes('Partner') ? '#8B5CF6' : '#00ADB5'}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span className="stat-label" style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{p.platform}</span>
+                <div style={{ fontSize: '24px', fontWeight: '800', marginTop: '8px', color: 'white' }}>{p.count} <span style={{ fontSize: '14px', fontWeight: '500', color: '#94A3B8' }}>orders</span></div>
+              </div>
+              <div style={{ padding: '8px 12px', background: `${p.platform.includes('Partner') ? '#8B5CF6' : '#00ADB5'}20`, color: p.platform.includes('Partner') ? '#8B5CF6' : '#00ADB5', borderRadius: '8px', fontWeight: '700', fontSize: '14px' }}>
+                ₹{p.revenue.toLocaleString()}
+              </div>
+            </div>
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ height: '6px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ 
+                  height: '100%', 
+                  width: `${(p.count / platformStats.reduce((acc, curr) => acc + curr.count, 0)) * 100}%`, 
+                  background: p.platform.includes('Partner') ? '#8B5CF6' : '#00ADB5',
+                  boxShadow: `0 0 10px ${p.platform.includes('Partner') ? '#8B5CF6' : '#00ADB5'}60`
+                }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: '#94A3B8', fontWeight: '600' }}>
+                <span>{Math.round((p.count / platformStats.reduce((acc, curr) => acc + curr.count, 0)) * 100)}% share</span>
+                <span>Today's Metric</span>
+              </div>
+            </div>
           </div>
         ))}
       </div>
