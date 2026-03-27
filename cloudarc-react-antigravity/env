@@ -1,0 +1,8 @@
+# =====================================================
+# CloudArc Customer App — Environment Variables
+# =====================================================
+# ⚡ Change this ONE line when your Flask API is deployed
+VITE_API_URL=http://localhost:5001
+
+# When on Render/cloud, change to:
+# VITE_API_URL=https://cloudarc-api.onrender.com

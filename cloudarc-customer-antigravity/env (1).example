@@ -1,0 +1,10 @@
+# CloudArc Customer App — Environment Variables
+# =====================================================
+# ⚡ STEP 1: Paste your Flask API URL below
+# ⚡ STEP 2: Run `npm run dev` — everything connects automatically
+# =====================================================
+
+VITE_API_URL=http://localhost:5000
+
+# When deployed to Vercel/Render, update to:
+# VITE_API_URL=https://cloudarc-api.onrender.com

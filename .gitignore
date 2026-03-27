@@ -1,0 +1,4 @@
+# Component-specific ignores are in their own folders
+# But we ignore system files here
+.DS_Store
+Thumbs.db
