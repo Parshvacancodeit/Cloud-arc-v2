@@ -104,7 +104,7 @@ def get_analytics(restaurant_id):
         for k, v in sorted(item_agg.items(), key=lambda x: -x[1]['orders'])
     ][:10]
 
-    # ── Orders by Hour ─────────────────────────────────────────────
+    # ── Orders by Hour (fill all 24 hours so chart has no gaps) ───
     hour_rows = query_db(
         '''SELECT strftime('%H:00', created_at) as hour,
                   COUNT(*) as count
@@ -114,15 +114,59 @@ def get_analytics(restaurant_id):
            ORDER BY hour ASC''',
         [restaurant_id, start, now]
     )
-    orders_by_hour = [{'hour': r['hour'], 'count': r['count']} for r in hour_rows]
+    hour_map = {f'{h:02d}:00': 0 for h in range(24)}
+    for r in hour_rows:
+        hour_map[r['hour']] = r['count']
+    orders_by_hour = [{'hour': h, 'count': c} for h, c in sorted(hour_map.items())]
 
-    # ── Performance ────────────────────────────────────────────────
+    # ── Performance (calculated from real data) ────────────────────
     total = summary['total_orders']
+
+    # Completion rate: completed orders / all orders in period
+    completed_row = query_db(
+        '''SELECT COUNT(*) as cnt FROM orders
+           WHERE restaurant_id=? AND status='completed'
+           AND created_at BETWEEN ? AND ?''',
+        [restaurant_id, start, now], one=True
+    )
+    completed_count = completed_row['cnt'] if completed_row else 0
+
+    # Cancelled orders
+    cancelled_row = query_db(
+        '''SELECT COUNT(*) as cnt FROM orders
+           WHERE restaurant_id=? AND status='cancelled'
+           AND created_at BETWEEN ? AND ?''',
+        [restaurant_id, start, now], one=True
+    )
+    cancelled_count = cancelled_row['cnt'] if cancelled_row else 0
+
+    # Fulfillment rate = non-cancelled / total
+    fulfillment_rate = round(((total - cancelled_count) / max(total, 1)) * 100)
+    # Completion rate = completed / total
+    completion_rate = round((completed_count / max(total, 1)) * 100)
+
+    # Average items per order
+    avg_items_row = query_db(
+        '''SELECT items FROM orders
+           WHERE restaurant_id=? AND created_at BETWEEN ? AND ?''',
+        [restaurant_id, start, now]
+    )
+    total_items = 0
+    for row in avg_items_row:
+        items = json.loads(row['items'] or '[]')
+        total_items += sum(int(i.get('qty') or i.get('quantity') or 1) for i in items)
+    avg_items = round(total_items / max(total, 1), 1)
+
+    # Peak hour
+    peak_hour = max(orders_by_hour, key=lambda x: x['count'])['hour'] if orders_by_hour else '12:00'
+
     performance = {
-        'acceptance_rate': 94,
-        'on_time_rate': 87 if total < 10 else min(95, 80 + total // 5),
-        'rating': 4.6,
-        'accuracy_rate': 96,
+        'completion_rate': completion_rate,
+        'fulfillment_rate': fulfillment_rate,
+        'avg_items_per_order': avg_items,
+        'peak_hour': peak_hour,
+        'total_items_sold': total_items,
+        'cancelled_count': cancelled_count,
     }
 
     return jsonify({

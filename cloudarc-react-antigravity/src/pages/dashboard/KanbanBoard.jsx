@@ -1,337 +1,270 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiPlus, FiClock, FiPackage, FiMapPin, FiPhone, FiX, FiRefreshCw, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FiRefreshCw, FiClock, FiCheck, FiAlertCircle, FiCheckCircle, FiVolume2, FiVolumeX } from 'react-icons/fi';
 import { ordersApi } from '../../services/api';
 import '../../styles/KanbanBoard.css';
 
-const EMPTY_BOARD = { received: [], preparing: [], ready: [], dispatched: [], completed: [], cancelled: [] };
+const COLUMNS = [
+  { key: 'received', label: 'New Orders', color: '#00ADB5' },
+  { key: 'preparing', label: 'Preparing', color: '#3b82f6' },
+  { key: 'ready', label: 'Ready', color: '#10B981' },
+  { key: 'dispatched', label: 'Dispatched', color: '#8b5cf6' },
+];
+
+const NEXT_ACTION = {
+  received: { label: 'Accept & Prepare', next: 'preparing' },
+  preparing: { label: 'Mark Ready', next: 'ready' },
+  ready: { label: 'Dispatch', next: 'dispatched' },
+  dispatched: { label: 'Mark Delivered', next: 'completed' },
+};
 
 const KanbanBoard = () => {
+  const [ordersByStatus, setOrdersByStatus] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [checkedItems, setCheckedItems] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('kds_checks') || '{}'); }
+    catch { return {}; }
+  });
+  const prevReceivedCount = useRef(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('kds_checks', JSON.stringify(checkedItems));
+  }, [checkedItems]);
+
+  const toggleCheck = (orderId, idx) => {
+    setCheckedItems(prev => ({
+      ...prev,
+      [orderId]: { ...(prev[orderId] || {}), [idx]: !(prev[orderId]?.[idx]) }
+    }));
+  };
+
   const restaurantId = localStorage.getItem('restaurant_id');
 
-  const [orders, setOrders] = useState(EMPTY_BOARD);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [draggedOrder, setDraggedOrder] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState(null);
+  const playChime = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.35);
+    } catch {}
+  }, [soundEnabled]);
 
   const fetchOrders = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    if (!restaurantId) return;
     try {
       const data = await ordersApi.getAll(restaurantId);
-      // API returns { received: [...], preparing: [...], ready: [...], dispatched: [...] }
-      setOrders({
-        received: data.received || [],
-        preparing: data.preparing || [],
-        ready: data.ready || [],
-        dispatched: data.dispatched || [],
-        completed: data.completed || [],
-        cancelled: data.cancelled || [],
-      });
+      if (data) {
+        setOrdersByStatus(data);
+        const newCount = (data.received || []).length;
+        if (prevReceivedCount.current > 0 && newCount > prevReceivedCount.current) {
+          playChime();
+        }
+        prevReceivedCount.current = newCount;
+      }
     } catch (err) {
-      setError(err.message || 'Failed to load orders');
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, [restaurantId]);
+  }, [restaurantId, playChime]);
 
   useEffect(() => {
     fetchOrders();
-    // Auto-refresh every 30s for real-time feel
-    const interval = setInterval(fetchOrders, 30000);
+    const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
-  const columns = [
-    { id: 'received', title: 'Received', color: '#3B82F6' },
-    { id: 'preparing', title: 'Preparing', color: '#FF5722' },
-    { id: 'ready', title: 'Ready', color: '#10B981' },
-    { id: 'dispatched', title: 'Dispatched', color: '#8B5CF6' },
-    { id: 'completed', title: 'Completed', color: '#10B981', isEndStage: true },
-  ];
-
-  const handleDragStart = (e, order, sourceColumn) => {
-    setDraggedOrder({ order, sourceColumn });
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-
-  const handleDrop = async (e, targetColumn) => {
-    e.preventDefault();
-    if (!draggedOrder || draggedOrder.sourceColumn === targetColumn) return;
-
-    const { order, sourceColumn } = draggedOrder;
-
-    // Optimistic UI update
-    setOrders(prev => {
-      const next = { ...prev };
-      next[sourceColumn] = next[sourceColumn].filter(o => o.id !== order.id);
-      next[targetColumn] = [...next[targetColumn], { ...order, status: targetColumn }];
-      return next;
-    });
-    setDraggedOrder(null);
-
-    // Persist to API
+  const handleStatusUpdate = async (order, newStatus) => {
     try {
-      await ordersApi.updateStatus(order.id, targetColumn);
+      setOrdersByStatus(prev => {
+        const u = { ...prev };
+        u[order.status] = (u[order.status] || []).filter(o => o.id !== order.id);
+        u[newStatus] = [...(u[newStatus] || []), { ...order, status: newStatus }];
+        return u;
+      });
+      if (newStatus === 'completed') {
+        setCheckedItems(prev => { const n = { ...prev }; delete n[order.id]; return n; });
+      }
+      await ordersApi.updateStatus(order.id, newStatus);
+      fetchOrders();
     } catch {
-      // Revert on failure
       fetchOrders();
     }
   };
 
-  const handleStatusUpdate = async (order, nextStatus) => {
-    // Optimistic UI update
-    setOrders(prev => {
-      const next = { ...prev };
-      const currentStatus = order.status;
-      
-      // Defensive checks to prevent crashing
-      if (next[currentStatus]) {
-        next[currentStatus] = next[currentStatus].filter(o => o.id !== order.id);
-      }
-      if (next[nextStatus]) {
-        next[nextStatus] = [...next[nextStatus], { ...order, status: nextStatus }];
-      } else {
-        // If nextStatus isn't a column we track in state, just remove from current
-        console.warn(`Status ${nextStatus} not found in state board`);
-      }
-      
-      return next;
-    });
-
-    try {
-      await ordersApi.updateStatus(order.id, nextStatus);
-    } catch (err) {
-      console.error('Failed to update status:', err);
-      fetchOrders();
-    }
+  const formatElapsed = (createdAtStr) => {
+    const ms = currentTime - new Date(createdAtStr).getTime();
+    if (ms < 0) return { display: 'now', level: 'normal' };
+    const totalSecs = Math.floor(ms / 1000);
+    const hrs = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    let display;
+    if (hrs > 0) display = `${hrs}h ${mins}m`;
+    else if (mins > 0) display = `${mins}m ${secs}s`;
+    else display = `${secs}s`;
+    let level = 'normal';
+    if (hrs > 0 || mins >= 20) level = 'late';
+    else if (mins >= 10) level = 'warn';
+    return { display, level };
   };
 
-  const getPriorityColor = (priority) => ({ high: '#FF5722', normal: '#00ADB5', low: '#64748B', urgent: '#DC2626' }[priority] || '#64748B');
+  const activeCount = (ordersByStatus.received?.length || 0)
+    + (ordersByStatus.preparing?.length || 0)
+    + (ordersByStatus.ready?.length || 0)
+    + (ordersByStatus.dispatched?.length || 0);
 
-  const filteredOrders = (columnOrders) => {
-    if (!searchTerm) return columnOrders;
-    const term = searchTerm.toLowerCase();
-    return columnOrders.filter(o =>
-      String(o.id).includes(term) ||
-      (o.order_number || '').toLowerCase().includes(term) ||
-      (o.customer_name || '').toLowerCase().includes(term) ||
-      (o.platform || '').toLowerCase().includes(term)
+  const completedOrders = (ordersByStatus.completed || [])
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 10);
+
+  if (loading) {
+    return <div className="kds-loading-state">Loading kitchen orders...</div>;
+  }
+
+  const renderCard = (order) => {
+    const elapsed = formatElapsed(order.created_at);
+    const isSwiggy = (order.platform || '').toLowerCase().includes('swiggy') || order.platform === 'Partner App';
+    const items = order.items || [];
+    const action = NEXT_ACTION[order.status];
+    const checkedCount = items.filter((_, i) => checkedItems[order.id]?.[i]).length;
+
+    return (
+      <div key={order.id} className={`kds-card time-${elapsed.level}`}>
+        <div className="kds-card-top">
+          <span className="kds-order-id">#{order.order_number || order.id}</span>
+          <span className={`kds-elapsed time-${elapsed.level}`}>
+            <FiClock size={12} /> {elapsed.display}
+          </span>
+        </div>
+
+        <div className="kds-card-customer">
+          <span className="kds-cust-name">{order.customer_name}</span>
+          <span className={`kds-source ${isSwiggy ? 'swiggy' : 'direct'}`}>
+            {isSwiggy ? 'Swiggy' : 'Direct'}
+          </span>
+        </div>
+
+        {items.length > 0 && (
+          <div className="kds-prep-bar">
+            <div className="kds-prep-fill" style={{ width: `${items.length > 0 ? (checkedCount / items.length) * 100 : 0}%` }}></div>
+          </div>
+        )}
+
+        <div className="kds-items-section">
+          {items.map((item, idx) => {
+            const done = checkedItems[order.id]?.[idx];
+            return (
+              <div key={idx} className={`kds-item-row ${done ? 'done' : ''}`} onClick={() => toggleCheck(order.id, idx)}>
+                <div className={`kds-checkbox ${done ? 'checked' : ''}`}>
+                  {done && <FiCheck size={11} />}
+                </div>
+                <span className="kds-item-qty">{item.qty || item.quantity}×</span>
+                <span className="kds-item-name">{item.name || item.item_name}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {order.notes && (
+          <div className="kds-notes"><FiAlertCircle size={12} /> {order.notes}</div>
+        )}
+
+        {action && (
+          <button className={`kds-action-btn status-${order.status}`} onClick={() => handleStatusUpdate(order, action.next)}>
+            {action.label}
+          </button>
+        )}
+      </div>
     );
   };
 
-  const formatTime = (isoStr) => {
-    if (!isoStr) return '';
-    const diff = Math.floor((Date.now() - new Date(isoStr)) / 60000);
-    if (diff < 1) return 'just now';
-    if (diff < 60) return `${diff} min ago`;
-    return `${Math.floor(diff / 60)}h ago`;
-  };
-
-  if (loading) return (
-    <div className="kanban-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-      <div style={{ textAlign: 'center', color: '#64748B' }}>
-        <FiRefreshCw style={{ width: 32, height: 32, animation: 'spin 1s linear infinite', marginBottom: 12 }} />
-        <p>Loading orders...</p>
-      </div>
-    </div>
-  );
-
-  if (error) return (
-    <div className="kanban-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-      <div style={{ textAlign: 'center' }}>
-        <FiAlertCircle style={{ width: 32, height: 32, color: '#FF5722', marginBottom: 12 }} />
-        <p style={{ color: '#64748B', marginBottom: 16 }}>{error}</p>
-        <button onClick={fetchOrders} style={{ padding: '8px 20px', background: '#00ADB5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Retry</button>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="kanban-container">
-      <div className="kanban-header">
+    <div className="kds-page">
+      {/* Header */}
+      <div className="kds-page-header">
         <div>
-          <h1>Order Management</h1>
-          <p>Drag and drop orders between stages — auto-refreshes every 30s</p>
+          <h1 className="kds-page-title">Kitchen Display</h1>
+          <p className="kds-page-sub">
+            {activeCount} active order{activeCount !== 1 ? 's' : ''}
+            {' · '}
+            {new Date(currentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+          </p>
         </div>
-        <div className="header-actions">
-          <div className="search-box">
-            <FiSearch />
-            <input type="text" placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-          </div>
-          <button className="btn-secondary" onClick={fetchOrders}>
-            <FiRefreshCw />
-            <span>Refresh</span>
+        <div className="kds-header-actions">
+          <button className={`kds-icon-btn ${soundEnabled ? '' : 'muted'}`} onClick={() => setSoundEnabled(!soundEnabled)} title={soundEnabled ? 'Mute' : 'Unmute'}>
+            {soundEnabled ? <FiVolume2 size={16} /> : <FiVolumeX size={16} />}
+          </button>
+          <button className="kds-icon-btn" onClick={fetchOrders} title="Refresh">
+            <FiRefreshCw size={16} />
           </button>
         </div>
       </div>
 
-      <div className="kanban-board">
-        {columns.map((column) => (
-          <div key={column.id} className="kanban-column" onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, column.id)}>
-            <div className="column-header">
-              <div className="column-title">
-                <div className="status-indicator" style={{ background: column.color }} />
-                <h3>{column.title}</h3>
-                <span className="order-count">{orders[column.id].length}</span>
+      {/* Kanban Columns */}
+      <div className="kds-kanban">
+        {COLUMNS.map(col => {
+          const colOrders = (ordersByStatus[col.key] || [])
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          return (
+            <div key={col.key} className="kds-column">
+              <div className="kds-col-header">
+                <div className="kds-col-dot" style={{ background: col.color }}></div>
+                <span className="kds-col-title">{col.label}</span>
+                <span className="kds-col-count">{colOrders.length}</span>
+              </div>
+              <div className="kds-col-body">
+                {colOrders.length === 0 ? (
+                  <div className="kds-col-empty">No orders</div>
+                ) : (
+                  colOrders.map(renderCard)
+                )}
               </div>
             </div>
-
-            <div className="column-content">
-              {filteredOrders(orders[column.id]).map((order) => (
-                <div
-                  key={order.id}
-                  className="order-card"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, order, column.id)}
-                  onClick={() => setSelectedOrder(order)}
-                  style={{ borderLeftColor: column.color }}
-                >
-                  <div className="order-card-header">
-                    <span className="order-number">{order.order_number || `#${order.id}`}</span>
-                    <span className="priority-badge" style={{ background: `${getPriorityColor(order.priority)}20`, color: getPriorityColor(order.priority) }}>
-                      {order.priority || 'normal'}
-                    </span>
-                  </div>
-
-                  <div className="order-platform-badge">{order.platform}</div>
-
-                  <div className="order-items">
-                    {(order.items || []).map((item, idx) => (
-                      <div key={idx} className="item-row">
-                        <span>{item.qty || item.quantity}x</span>
-                        <span>{item.name || item.item_name}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="order-footer">
-                    <div className="order-total">₹{order.total_amount || order.total}</div>
-                    <div className="order-time">
-                      <FiClock />
-                      {formatTime(order.created_at)}
-                    </div>
-                  </div>
-
-                  {order.assigned_to && <div className="assigned-badge">{order.assigned_to}</div>}
-
-                  {column.id === 'received' && (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                      <button 
-                        className="btn-complete" 
-                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'preparing'); }}
-                        style={{ flex: 1, padding: '8px', background: '#3B82F6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Accept
-                      </button>
-                      <button 
-                        className="btn-archive" 
-                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'cancelled'); }}
-                        style={{ flex: 1, padding: '8px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-
-                  {column.id === 'preparing' && (
-                    <button 
-                      className="btn-complete" 
-                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'ready'); }}
-                      style={{ marginTop: '12px', padding: '8px', background: '#FF5722', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
-                    >
-                      Mark as Ready
-                    </button>
-                  )}
-
-                  {column.id === 'ready' && (
-                    <button 
-                      className="btn-complete" 
-                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'dispatched'); }}
-                      style={{ marginTop: '12px', padding: '8px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
-                    >
-                      Dispatch Order
-                    </button>
-                  )}
-
-                  {column.id === 'dispatched' && (
-                    <button 
-                      className="btn-complete" 
-                      onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'completed'); }}
-                      style={{ marginTop: '12px', padding: '8px', background: '#8B5CF6', color: 'white', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', width: '100%' }}
-                    >
-                      Complete Order
-                    </button>
-                  )}
-                  {column.id === 'completed' && (
-                    <div style={{ marginTop: '12px', textAlign: 'center', color: '#10B981', fontSize: '12px', fontWeight: '700', background: 'rgba(16,185,129,0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <FiCheckCircle /> Delivered
-                    </div>
-                  )}
-                  {column.id === 'cancelled' && (
-                    <div style={{ marginTop: '12px', textAlign: 'center', color: '#EF4444', fontSize: '12px', fontWeight: '700', background: 'rgba(239,68,68,0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <FiX /> Cancelled
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {filteredOrders(orders[column.id]).length === 0 && (
-                <div className="empty-column">
-                  <FiPackage />
-                  <p>No orders</p>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Order Detail Modal */}
-      {selectedOrder && (
-        <div className="modal-overlay" onClick={() => setSelectedOrder(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Order {selectedOrder.order_number || `#${selectedOrder.id}`}</h2>
-              <button className="close-btn" onClick={() => setSelectedOrder(null)}><FiX /></button>
-            </div>
-            <div className="modal-body">
-              <div className="detail-section">
-                <h3>Customer Details</h3>
-                <div className="detail-row"><FiPackage /><span>{selectedOrder.customer_name}</span></div>
-                {selectedOrder.customer_phone && <div className="detail-row"><FiPhone /><span>{selectedOrder.customer_phone}</span></div>}
-                {selectedOrder.customer_address && <div className="detail-row"><FiMapPin /><span>{selectedOrder.customer_address}</span></div>}
-              </div>
-              <div className="detail-section">
-                <h3>Order Items</h3>
-                {(selectedOrder.items || []).map((item, idx) => (
-                  <div key={idx} className="item-detail">
-                    <span>{item.qty || item.quantity}x {item.name || item.item_name}</span>
-                  </div>
-                ))}
-              </div>
-              {selectedOrder.notes && (
-                <div className="detail-section">
-                  <h3>Special Instructions</h3>
-                  <p style={{ fontSize: '14px', color: '#64748B' }}>{selectedOrder.notes}</p>
+      {/* Completed Section */}
+      <div className="kds-completed-section">
+        <button className="kds-completed-toggle" onClick={() => setShowCompleted(!showCompleted)}>
+          <FiCheckCircle size={16} />
+          Recently Completed ({completedOrders.length})
+          <span className="kds-toggle-arrow">{showCompleted ? '▲' : '▼'}</span>
+        </button>
+        {showCompleted && (
+          <div className="kds-completed-list">
+            {completedOrders.length === 0 ? (
+              <p className="kds-completed-empty">No completed orders yet</p>
+            ) : (
+              completedOrders.map(order => (
+                <div key={order.id} className="kds-completed-row">
+                  <span className="kds-completed-id">#{order.order_number || order.id}</span>
+                  <span className="kds-completed-customer">{order.customer_name}</span>
+                  <span className={`kds-source ${(order.platform || '').toLowerCase().includes('swiggy') || order.platform === 'Partner App' ? 'swiggy' : 'direct'}`}>
+                    {(order.platform || '').toLowerCase().includes('swiggy') || order.platform === 'Partner App' ? 'Swiggy' : 'Direct'}
+                  </span>
+                  <span className="kds-completed-amount">₹{order.total_amount}</span>
                 </div>
-              )}
-              <div className="detail-section">
-                <div className="total-row">
-                  <span>Total Amount</span>
-                  <span className="total-amount">₹{selectedOrder.total_amount || selectedOrder.total}</span>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setSelectedOrder(null)}>Close</button>
-            </div>
+              ))
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
