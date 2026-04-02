@@ -60,18 +60,29 @@ def create_item(restaurant_id):
 @require_auth
 def update_item(item_id):
     data = request.get_json(silent=True) or {}
+    print(f"[MENU] Updating item {item_id}: {data}") # Log for debugging
+    
     row = query_db('SELECT * FROM menu_items WHERE id=?', [item_id], one=True)
     if not row:
         return jsonify({'message': 'Menu item not found'}), 404
 
+    # Use existing value if not provided in request
     name          = data.get('name', row['name'])
     category      = data.get('category', row['category'])
     price         = float(data.get('price', row['price']))
     description   = data.get('description', row['description'])
     prep_time     = int(data.get('prep_time', row['prep_time']))
-    is_available  = data.get('is_available', bool(row['is_available']))
-    is_veg        = data.get('is_veg', bool(row['is_veg']))
-    is_bestseller = data.get('is_bestseller', bool(row['is_bestseller']))
+    
+    # Handle booleans carefully (check for None to allow Falsey values like False or 0)
+    def _bool_to_int(val, fallback_key):
+        if val is not None:
+            return 1 if val else 0
+        return 1 if row[fallback_key] else 0
+
+    is_available  = _bool_to_int(data.get('is_available'), 'is_available')
+    is_veg        = _bool_to_int(data.get('is_veg'), 'is_veg')
+    is_bestseller = _bool_to_int(data.get('is_bestseller'), 'is_bestseller')
+    
     platforms     = data.get('platforms', json.loads(row['platforms'] or '[]'))
     image_url     = data.get('image_url', row['image_url'])
 
@@ -80,8 +91,8 @@ def update_item(item_id):
            prep_time=?, is_available=?, is_veg=?, is_bestseller=?,
            platforms=?, image_url=?, updated_at=datetime('now') WHERE id=?''',
         [name, category, price, description, prep_time,
-         1 if is_available else 0, 1 if is_veg else 0,
-         1 if is_bestseller else 0, json.dumps(platforms), image_url, item_id]
+         is_available, is_veg, is_bestseller, 
+         json.dumps(platforms), image_url, item_id]
     )
     updated = query_db('SELECT * FROM menu_items WHERE id=?', [item_id], one=True)
     return jsonify(_row_to_dict(updated))

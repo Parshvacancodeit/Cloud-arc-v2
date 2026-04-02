@@ -99,3 +99,20 @@ def update_settings(restaurant_id):
     )
     updated = query_db('SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True)
     return jsonify(_row_to_dict(updated))
+@settings_bp.route('/api/settings/<int:restaurant_id>/status', methods=['PATCH'])
+@require_auth
+def toggle_status(restaurant_id):
+    row = query_db('SELECT id, is_active FROM restaurants WHERE id=?', [restaurant_id], one=True)
+    if not row:
+        return jsonify({'message': 'Restaurant not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    new_status = 1 if data.get('is_active', not bool(row['is_active'])) else 0
+
+    execute_db(
+        "UPDATE restaurants SET is_active=?, updated_at=datetime('now') WHERE id=?",
+        [new_status, restaurant_id]
+    )
+
+    updated = query_db('SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True)
+    return jsonify(_row_to_dict(updated))

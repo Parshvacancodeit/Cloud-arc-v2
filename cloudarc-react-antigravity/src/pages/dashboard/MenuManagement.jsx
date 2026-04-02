@@ -98,6 +98,7 @@ const MenuManagement = () => {
         is_veg: formData.veg,
         is_bestseller: formData.bestseller,
         platforms: formData.platforms,
+        is_available: editingItem ? editingItem.available : true,
       };
 
       if (editingItem) {
@@ -214,7 +215,6 @@ const MenuManagement = () => {
         <div className="empty-state"><FiSearch /><h3>No items found</h3><p>Try adjusting your search or add a new item</p></div>
       )}
 
-      {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="modal-overlay" onClick={resetForm}>
           <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
@@ -222,50 +222,52 @@ const MenuManagement = () => {
               <h2>{editingItem ? 'Edit Menu Item' : 'Add New Item'}</h2>
               <button className="close-btn" onClick={resetForm}><FiX /></button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-body">
-              {formError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>⚠ {formError}</div>}
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Item Name *</label>
-                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Margherita Pizza" />
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                {formError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>⚠ {formError}</div>}
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Item Name *</label>
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Margherita Pizza" />
+                  </div>
+                  <div className="form-group">
+                    <label>Category *</label>
+                    <input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required placeholder="e.g., Pizza, Burgers" />
+                  </div>
+                  <div className="form-group">
+                    <label>Price (₹) *</label>
+                    <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required placeholder="299" min="0" />
+                  </div>
+                  <div className="form-group">
+                    <label>Prep Time (minutes) *</label>
+                    <input type="number" value={formData.prepTime} onChange={(e) => setFormData({ ...formData, prepTime: e.target.value })} required placeholder="15" min="1" />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Description *</label>
+                    <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows="3" placeholder="Describe your dish..." />
+                  </div>
+                  <div className="form-group full-width">
+                    <label>Available on Platforms</label>
+                    <div className="platform-checkboxes">
+                      {PLATFORM_OPTIONS.map(p => (
+                        <label key={p} className="checkbox-label">
+                          <input type="checkbox" checked={formData.platforms.includes(p)} onChange={() => handlePlatformToggle(p)} />
+                          <span>{p}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Category *</label>
-                  <input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required placeholder="e.g., Pizza, Burgers" />
+                <div className="form-row">
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={formData.veg} onChange={(e) => setFormData({ ...formData, veg: e.target.checked })} />
+                    <span>Vegetarian</span>
+                  </label>
+                  <label className="checkbox-label">
+                    <input type="checkbox" checked={formData.bestseller} onChange={(e) => setFormData({ ...formData, bestseller: e.target.checked })} />
+                    <span>Mark as Bestseller</span>
+                  </label>
                 </div>
-                <div className="form-group">
-                  <label>Price (₹) *</label>
-                  <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required placeholder="299" min="0" />
-                </div>
-                <div className="form-group">
-                  <label>Prep Time (minutes) *</label>
-                  <input type="number" value={formData.prepTime} onChange={(e) => setFormData({ ...formData, prepTime: e.target.value })} required placeholder="15" min="1" />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Description *</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows="3" placeholder="Describe your dish..." />
-              </div>
-              <div className="form-group">
-                <label>Available on Platforms</label>
-                <div className="platform-checkboxes">
-                  {PLATFORM_OPTIONS.map(p => (
-                    <label key={p} className="checkbox-label">
-                      <input type="checkbox" checked={formData.platforms.includes(p)} onChange={() => handlePlatformToggle(p)} />
-                      <span>{p}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="form-row">
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={formData.veg} onChange={(e) => setFormData({ ...formData, veg: e.target.checked })} />
-                  <span>Vegetarian</span>
-                </label>
-                <label className="checkbox-label">
-                  <input type="checkbox" checked={formData.bestseller} onChange={(e) => setFormData({ ...formData, bestseller: e.target.checked })} />
-                  <span>Mark as Bestseller</span>
-                </label>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>

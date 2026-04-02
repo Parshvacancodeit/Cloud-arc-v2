@@ -1,9 +1,42 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiHome, FiGrid, FiBook, FiUsers, FiBarChart2, FiSettings, FiLogOut, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { 
+  FiHome, FiGrid, FiBook, FiUsers, FiBarChart2, FiSettings, 
+  FiLogOut, FiChevronLeft, FiChevronRight, FiToggleLeft, FiToggleRight,
+  FiCloud, FiCloudOff
+} from 'react-icons/fi';
+import { settingsApi } from '../../services/api';
 import '../../styles/Sidebar.css';
 
 const Sidebar = ({ collapsed, setCollapsed }) => {
   const location = useLocation();
+  const [isOnline, setIsOnline] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const restaurantId = localStorage.getItem('restaurant_id');
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      if (!restaurantId) return;
+      try {
+        const data = await settingsApi.get(restaurantId);
+        setIsOnline(data.is_active);
+      } catch (err) {
+        console.error('Failed to fetch status:', err);
+      } finally {
+        setLoadingStatus(false);
+      }
+    };
+    fetchStatus();
+  }, [restaurantId]);
+
+  const handleToggleStatus = async () => {
+    try {
+      const resp = await settingsApi.toggleStatus(restaurantId, !isOnline);
+      setIsOnline(resp.is_active);
+    } catch (err) {
+      console.error('Toggle failed:', err);
+    }
+  };
 
   const menuItems = [
     { path: '/dashboard', icon: FiHome, label: 'Overview', exact: true },
@@ -22,8 +55,8 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
   };
 
   const handleLogout = () => {
-    // Clear any auth tokens
-    localStorage.removeItem('authToken');
+    localStorage.removeItem('token');
+    localStorage.removeItem('restaurant_id');
     window.location.href = '/login';
   };
 
@@ -61,6 +94,23 @@ const Sidebar = ({ collapsed, setCollapsed }) => {
       </nav>
 
       <div className="sidebar-footer">
+        <div className={`status-section ${isOnline ? 'online' : 'offline'} ${collapsed ? 'collapsed' : ''}`}>
+          <button className="status-toggle-btn" onClick={handleToggleStatus} disabled={loadingStatus}>
+            <div className="status-icon-wrap">
+              {isOnline ? <FiCloud className="status-icon" /> : <FiCloudOff className="status-icon" />}
+            </div>
+            {!collapsed && (
+              <div className="status-info">
+                <span className="status-text">{isOnline ? 'Online' : 'Paused'}</span>
+                <span className="status-subtext">{isOnline ? 'Store is open' : 'Offline'}</span>
+              </div>
+            )}
+            <div className="status-toggle-icon">
+              {isOnline ? <FiToggleRight size={24} /> : <FiToggleLeft size={24} />}
+            </div>
+          </button>
+        </div>
+
         <button 
           className="logout-btn"
           onClick={handleLogout}

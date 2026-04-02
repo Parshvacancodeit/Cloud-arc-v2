@@ -77,20 +77,48 @@ def update_status(order_id):
     data      = request.get_json(silent=True) or {}
     status    = data.get('status') or ''
     assigned  = data.get('assigned_to')
+    cust_msg  = data.get('customer_message')
 
     if status not in STATUSES:
         return jsonify({'message': f'Invalid status. Must be one of {STATUSES}'}), 400
 
-    if assigned is not None:
+    if status == 'preparing' and not cust_msg:
+        cust_msg = "Order Accepted! We're starting your meal. 👨‍🍳"
+    elif status == 'cancelled' and not cust_msg:
+        cust_msg = "Unfortunately, we cannot fulfill this order at the moment. It has been cancelled. 😔"
+
+    if status == 'preparing':
+        if assigned is not None:
+            execute_db(
+                "UPDATE orders SET status=?, assigned_to=?, accepted_at=datetime('now'), updated_at=datetime('now'), customer_message=? WHERE id=?",
+                [status, assigned, cust_msg, order_id]
+            )
+        else:
+            execute_db(
+                "UPDATE orders SET status=?, accepted_at=datetime('now'), updated_at=datetime('now'), customer_message=? WHERE id=?",
+                [status, cust_msg, order_id]
+            )
+    elif status == 'ready':
         execute_db(
-            "UPDATE orders SET status=?, assigned_to=?, updated_at=datetime('now') WHERE id=?",
-            [status, assigned, order_id]
-        )
-    else:
-        execute_db(
-            "UPDATE orders SET status=?, updated_at=datetime('now') WHERE id=?",
+            "UPDATE orders SET status=?, ready_at=datetime('now'), updated_at=datetime('now'), customer_message='Order is Ready for pickup! 🎁' WHERE id=?",
             [status, order_id]
         )
+    elif status == 'cancelled':
+        execute_db(
+            "UPDATE orders SET status=?, updated_at=datetime('now'), customer_message=? WHERE id=?",
+            [status, cust_msg, order_id]
+        )
+    else:
+        if assigned is not None:
+            execute_db(
+                "UPDATE orders SET status=?, assigned_to=?, updated_at=datetime('now'), customer_message=? WHERE id=?",
+                [status, assigned, cust_msg, order_id]
+            )
+        else:
+            execute_db(
+                "UPDATE orders SET status=?, updated_at=datetime('now'), customer_message=? WHERE id=?",
+                [status, cust_msg, order_id]
+            )
 
     row = query_db('SELECT * FROM orders WHERE id=?', [order_id], one=True)
     if not row:

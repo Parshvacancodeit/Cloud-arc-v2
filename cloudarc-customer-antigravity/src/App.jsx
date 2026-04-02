@@ -1145,7 +1145,13 @@ const OrderHistoryPage = ({ onNavigate }) => {
       ) : (
         <div style={{ padding: '0 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {orders.map(o => (
-            <div key={o.id} style={{ background: 'var(--card)', borderRadius: 16, border: '1px solid var(--border)', padding: 16 }}>
+            <div key={o.id} style={{ background: 'var(--card)', borderRadius: 16, border: '1px solid var(--border)', padding: 16, position: 'relative', overflow: 'hidden' }}>
+              {o.customer_message && (o.status === 'received' || o.status === 'preparing') && (
+                <div style={{ background: 'rgba(0,173,181,0.15)', color: 'var(--teal)', fontSize: 12, padding: '8px 12px', marginBottom: 12, borderRadius: 10, border: '1px solid rgba(0,173,181,0.3)', display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <FiInfo size={14} /> {o.customer_message}
+                </div>
+              )}
+              
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 15 }}>{o.restaurant_name}</div>

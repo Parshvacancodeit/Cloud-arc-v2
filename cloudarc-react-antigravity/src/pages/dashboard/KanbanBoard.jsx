@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FiRefreshCw, FiClock, FiCheck, FiAlertCircle, FiCheckCircle, FiVolume2, FiVolumeX } from 'react-icons/fi';
+import { FiRefreshCw, FiClock, FiCheck, FiAlertCircle, FiCheckCircle, FiVolume2, FiVolumeX, FiSend } from 'react-icons/fi';
 import { ordersApi } from '../../services/api';
 import '../../styles/KanbanBoard.css';
 
@@ -123,6 +123,28 @@ const KanbanBoard = () => {
     return { display, level };
   };
 
+  const [notifiedOrders, setNotifiedOrders] = useState({});
+
+  const handleNotifyCustomer = async (orderId, reason) => {
+    try {
+      const msg = reason === 'surge' 
+        ? "Surge Alert: We're extra busy today! Your order might take a little longer. ⚠️" 
+        : "Order is taking slightly longer than expected. Thanks for your patience! 🙏";
+      
+      setNotifiedOrders(prev => ({ ...prev, [orderId]: true }));
+      await ordersApi.updateStatus(orderId, 'preparing', null, msg);
+      fetchOrders();
+    } catch (err) {
+      console.error('Failed to notify customer:', err);
+    }
+  };
+
+  const formatTime = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
   const activeCount = (ordersByStatus.received?.length || 0)
     + (ordersByStatus.preparing?.length || 0)
     + (ordersByStatus.ready?.length || 0)
@@ -137,31 +159,45 @@ const KanbanBoard = () => {
   }
 
   const renderCard = (order) => {
-    const elapsed = formatElapsed(order.created_at);
+    const { level } = formatElapsed(order.created_at);
     const isSwiggy = (order.platform || '').toLowerCase().includes('swiggy') || order.platform === 'Partner App';
     const items = order.items || [];
     const action = NEXT_ACTION[order.status];
     const checkedCount = items.filter((_, i) => checkedItems[order.id]?.[i]).length;
+    
+    // Prep Timer & Delay Logic
+    let isDelayed = false;
+    const avgPrepTime = 20; // fallback in minutes
+
+    if (order.status === 'preparing' && order.accepted_at) {
+      const ms = currentTime - new Date(order.accepted_at).getTime();
+      const mins = Math.floor(ms / 60000);
+      isDelayed = mins >= avgPrepTime;
+    }
+
+    const hasNotified = notifiedOrders[order.id] || (order.customer_message && order.customer_message.includes('Surge'));
 
     return (
-      <div key={order.id} className={`kds-card time-${elapsed.level}`}>
+      <div key={order.id} className={`kds-card time-${level} ${isDelayed ? 'delayed-border' : ''}`}>
         <div className="kds-card-top">
           <span className="kds-order-id">#{order.order_number || order.id}</span>
-          <span className={`kds-elapsed time-${elapsed.level}`}>
-            <FiClock size={12} /> {elapsed.display}
-          </span>
-        </div>
-
-        <div className="kds-card-customer">
-          <span className="kds-cust-name">{order.customer_name}</span>
-          <span className={`kds-source ${isSwiggy ? 'swiggy' : 'direct'}`}>
+          <span className={`kds-source-tag ${isSwiggy ? 'swiggy' : 'direct'}`}>
             {isSwiggy ? 'Swiggy' : 'Direct'}
           </span>
         </div>
 
-        {items.length > 0 && (
-          <div className="kds-prep-bar">
-            <div className="kds-prep-fill" style={{ width: `${items.length > 0 ? (checkedCount / items.length) * 100 : 0}%` }}></div>
+        <div className="kds-card-info-row" style={{ paddingBottom: '0.2rem' }}>
+          <span className="kds-received-at">Recv: {formatTime(order.created_at)}</span>
+          {isDelayed && <span className="kds-delayed-badge" style={{ animation: 'none', background: '#dc2626' }}>SURGE</span>}
+        </div>
+
+        <div className="kds-card-customer">
+          <span className="kds-cust-name">{order.customer_name}</span>
+        </div>
+
+        {order.customer_address && (
+          <div className="kds-address-snippet" title={order.customer_address}>
+             {order.customer_address.length > 25 ? order.customer_address.substring(0, 25) + '...' : order.customer_address}
           </div>
         )}
 
@@ -184,11 +220,36 @@ const KanbanBoard = () => {
           <div className="kds-notes"><FiAlertCircle size={12} /> {order.notes}</div>
         )}
 
-        {action && (
-          <button className={`kds-action-btn status-${order.status}`} onClick={() => handleStatusUpdate(order, action.next)}>
-            {action.label}
+        {isDelayed && (
+          <button 
+            className={`kds-notify-btn ${hasNotified ? 'sent' : ''}`}
+            onClick={() => !hasNotified && handleNotifyCustomer(order.id, 'surge')}
+            disabled={hasNotified}
+          >
+            {hasNotified ? (
+              <> <FiCheckCircle size={12} /> Customer Notified </>
+            ) : (
+              <> <FiSend size={12} /> Notify Surge Delay </>
+            )}
           </button>
         )}
+
+        <div className="kds-card-actions">
+          {order.status === 'received' && (
+            <button 
+              className="kds-reject-btn" 
+              onClick={(e) => { e.stopPropagation(); handleStatusUpdate(order, 'cancelled'); }}
+            >
+              Reject
+            </button>
+          )}
+
+          {action && (
+            <button className={`kds-action-btn status-${order.status}`} onClick={() => handleStatusUpdate(order, action.next)}>
+              {action.label}
+            </button>
+          )}
+        </div>
       </div>
     );
   };

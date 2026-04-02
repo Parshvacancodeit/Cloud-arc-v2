@@ -210,42 +210,54 @@ const TeamManagement = () => {
               <h2>{editingMember ? 'Edit Team Member' : 'Add Team Member'}</h2>
               <button className="close-btn" onClick={resetForm}><FiX /></button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-body">
-              {formError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>⚠ {formError}</div>}
-              <div className="form-grid">
-                <div className="form-group"><label>Full Name *</label><input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="John Doe" /></div>
-                <div className="form-group">
-                  <label>Role *</label>
-                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} required>
-                    <option value="">Select Role</option>
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body">
+                {formError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>⚠ {formError}</div>}
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Full Name *</label>
+                    <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="John Doe" />
+                  </div>
+                  <div className="form-group">
+                    <label>Role *</label>
+                    <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} required>
+                      <option value="">Select Role</option>
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Email *</label>
+                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required placeholder="john@example.com" />
+                  </div>
+                  <div className="form-group">
+                    <label>Phone *</label>
+                    <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} required placeholder="+91 98765 43210" />
+                  </div>
+                  <div className="form-group">
+                    <label>Station *</label>
+                    <select value={formData.station} onChange={(e) => setFormData({ ...formData, station: e.target.value })} required>
+                      <option value="">Select Station</option>
+                      {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Shift *</label>
+                    <select value={formData.shift} onChange={(e) => setFormData({ ...formData, shift: e.target.value })} required>
+                      {SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div className="form-group"><label>Email *</label><input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required placeholder="john@example.com" /></div>
-                <div className="form-group"><label>Phone *</label><input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} required placeholder="+91 98765 43210" /></div>
                 <div className="form-group">
-                  <label>Station *</label>
-                  <select value={formData.station} onChange={(e) => setFormData({ ...formData, station: e.target.value })} required>
-                    <option value="">Select Station</option>
-                    {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Shift *</label>
-                  <select value={formData.shift} onChange={(e) => setFormData({ ...formData, shift: e.target.value })} required>
-                    {SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Permissions</label>
-                <div className="permissions-grid">
-                  {PERMISSIONS.map(perm => (
-                    <label key={perm.id} className="checkbox-label">
-                      <input type="checkbox" checked={formData.permissions.includes(perm.id)} onChange={() => togglePermission(perm.id)} />
-                      <span>{perm.label}</span>
-                    </label>
-                  ))}
+                  <label>Permissions</label>
+                  <div className="permissions-grid">
+                    {PERMISSIONS.map(perm => (
+                      <label key={perm.id} className="checkbox-label">
+                        <input type="checkbox" checked={formData.permissions.includes(perm.id)} onChange={() => togglePermission(perm.id)} />
+                        <span>{perm.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">

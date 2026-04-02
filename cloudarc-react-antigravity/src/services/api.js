@@ -73,8 +73,12 @@ export const dashboardApi = {
 export const ordersApi = {
   getAll: (restaurantId) =>
     api.get(`/api/orders/${restaurantId}`),
-  updateStatus: (orderId, status, assignedTo = null) =>
-    api.patch(`/api/orders/${orderId}/status`, { status, assigned_to: assignedTo }),
+  updateStatus: (orderId, status, assignedTo = null, customerMessage = null) =>
+    api.patch(`/api/orders/${orderId}/status`, { 
+      status, 
+      assigned_to: assignedTo,
+      customer_message: customerMessage 
+    }),
   create: (restaurantId, data) =>
     api.post(`/api/orders/${restaurantId}`, data),
   delete: (orderId) =>
@@ -119,6 +123,8 @@ export const settingsApi = {
     api.get(`/api/settings/${restaurantId}`),
   update: (restaurantId, data) =>
     api.put(`/api/settings/${restaurantId}`, data),
+  toggleStatus: (restaurantId, isActive) =>
+    api.patch(`/api/settings/${restaurantId}/status`, { is_active: isActive }),
 };
 
 // ─── Public (Customer App) ──────────────────────────────────
