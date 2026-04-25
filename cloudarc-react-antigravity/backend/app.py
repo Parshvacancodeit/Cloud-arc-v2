@@ -14,6 +14,7 @@ from routes.settings import settings_bp
 from routes.public import public_bp
 from routes.customer_auth import customer_auth_bp
 from routes.db_viewer import db_viewer_bp
+from routes.upload import upload_bp
 
 
 def create_app():
@@ -46,6 +47,7 @@ def create_app():
     app.register_blueprint(public_bp)
     app.register_blueprint(customer_auth_bp)
     app.register_blueprint(db_viewer_bp)
+    app.register_blueprint(upload_bp)
 
     # ── DB lifecycle ──────────────────────────────────────────────────────────
     app.teardown_appcontext(close_db)

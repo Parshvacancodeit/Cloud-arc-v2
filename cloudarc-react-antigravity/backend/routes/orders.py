@@ -1,7 +1,7 @@
 import json
 import random
 import string
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import query_db, execute_db
 from auth_middleware import require_auth
 
@@ -25,6 +25,10 @@ def _row_to_dict(r):
 @require_auth
 def get_orders(restaurant_id):
     """Returns orders grouped by status column for the Kanban board."""
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     rows = query_db(
         '''SELECT * FROM orders WHERE restaurant_id=? ORDER BY created_at DESC''',
         [restaurant_id]
@@ -41,6 +45,10 @@ def get_orders(restaurant_id):
 @orders_bp.route('/api/orders/<int:restaurant_id>', methods=['POST'])
 @require_auth
 def create_order(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     data = request.get_json(silent=True) or {}
     order_number    = data.get('order_number') or _gen_order_number()
     platform        = data.get('platform') or 'Direct'
@@ -61,8 +69,8 @@ def create_order(restaurant_id):
         '''INSERT INTO orders
            (restaurant_id, order_number, platform, status, priority,
             customer_name, customer_phone, customer_address,
-            items, total_amount, notes, assigned_to)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
+            items, total_amount, notes, assigned_to, created_at, updated_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))''',
         [restaurant_id, order_number, platform, status, priority,
          customer_name, customer_phone, customer_address,
          json.dumps(items), total_amount, notes, assigned_to]
@@ -82,6 +90,14 @@ def update_status(order_id):
     if status not in STATUSES:
         return jsonify({'message': f'Invalid status. Must be one of {STATUSES}'}), 400
 
+    # SECURITY FIX: Check order exists AND belongs to the caller's restaurant
+    # Do this BEFORE performing any update (order-not-found was previously checked after!)
+    row = query_db('SELECT id, restaurant_id FROM orders WHERE id=?', [order_id], one=True)
+    if not row:
+        return jsonify({'message': 'Order not found'}), 404
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
+
     if status == 'preparing' and not cust_msg:
         cust_msg = "Order Accepted! We're starting your meal. 👨‍🍳"
     elif status == 'cancelled' and not cust_msg:
@@ -90,17 +106,17 @@ def update_status(order_id):
     if status == 'preparing':
         if assigned is not None:
             execute_db(
-                "UPDATE orders SET status=?, assigned_to=?, accepted_at=datetime('now'), updated_at=datetime('now'), customer_message=? WHERE id=?",
+                "UPDATE orders SET status=?, assigned_to=?, accepted_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), customer_message=? WHERE id=?",
                 [status, assigned, cust_msg, order_id]
             )
         else:
             execute_db(
-                "UPDATE orders SET status=?, accepted_at=datetime('now'), updated_at=datetime('now'), customer_message=? WHERE id=?",
+                "UPDATE orders SET status=?, accepted_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), customer_message=? WHERE id=?",
                 [status, cust_msg, order_id]
             )
     elif status == 'ready':
         execute_db(
-            "UPDATE orders SET status=?, ready_at=datetime('now'), updated_at=datetime('now'), customer_message='Order is Ready for pickup! 🎁' WHERE id=?",
+            "UPDATE orders SET status=?, ready_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), updated_at=strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), customer_message='Order is Ready for pickup! 🎁' WHERE id=?",
             [status, order_id]
         )
     elif status == 'cancelled':
@@ -120,17 +136,19 @@ def update_status(order_id):
                 [status, cust_msg, order_id]
             )
 
-    row = query_db('SELECT * FROM orders WHERE id=?', [order_id], one=True)
-    if not row:
-        return jsonify({'message': 'Order not found'}), 404
-    return jsonify(_row_to_dict(row))
+    updated = query_db('SELECT * FROM orders WHERE id=?', [order_id], one=True)
+    return jsonify(_row_to_dict(updated))
 
 
 @orders_bp.route('/api/orders/<int:order_id>', methods=['DELETE'])
 @require_auth
 def delete_order(order_id):
-    row = query_db('SELECT id FROM orders WHERE id=?', [order_id], one=True)
+    # SECURITY FIX: Check existence AND ownership before deleting
+    row = query_db('SELECT id, restaurant_id FROM orders WHERE id=?', [order_id], one=True)
     if not row:
         return jsonify({'message': 'Order not found'}), 404
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
+
     execute_db('DELETE FROM orders WHERE id=?', [order_id])
     return jsonify({'message': 'Order deleted'})

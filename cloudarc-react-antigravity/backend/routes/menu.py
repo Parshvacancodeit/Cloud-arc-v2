@@ -1,5 +1,5 @@
 import json
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import query_db, execute_db
 from auth_middleware import require_auth
 
@@ -18,6 +18,10 @@ def _row_to_dict(r):
 @menu_bp.route('/api/menu/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_menu(restaurant_id):
+    # SECURITY FIX: IDOR — verify the caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     rows = query_db(
         'SELECT * FROM menu_items WHERE restaurant_id=? ORDER BY category, name',
         [restaurant_id]
@@ -28,6 +32,10 @@ def get_menu(restaurant_id):
 @menu_bp.route('/api/menu/<int:restaurant_id>', methods=['POST'])
 @require_auth
 def create_item(restaurant_id):
+    # SECURITY FIX: IDOR — verify the caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     data = request.get_json(silent=True) or {}
     name          = (data.get('name') or '').strip()
     category      = (data.get('category') or '').strip()
@@ -60,11 +68,14 @@ def create_item(restaurant_id):
 @require_auth
 def update_item(item_id):
     data = request.get_json(silent=True) or {}
-    print(f"[MENU] Updating item {item_id}: {data}") # Log for debugging
-    
+
     row = query_db('SELECT * FROM menu_items WHERE id=?', [item_id], one=True)
     if not row:
         return jsonify({'message': 'Menu item not found'}), 404
+
+    # SECURITY FIX: IDOR — ensure this item belongs to the caller's restaurant
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
 
     # Use existing value if not provided in request
     name          = data.get('name', row['name'])
@@ -106,21 +117,31 @@ def toggle_availability(item_id):
     if is_available is None:
         return jsonify({'message': 'is_available field required'}), 400
 
+    # SECURITY FIX: IDOR — verify item ownership before patching
+    row = query_db('SELECT id, restaurant_id FROM menu_items WHERE id=?', [item_id], one=True)
+    if not row:
+        return jsonify({'message': 'Item not found'}), 404
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
+
     execute_db(
         "UPDATE menu_items SET is_available=?, updated_at=datetime('now') WHERE id=?",
         [1 if is_available else 0, item_id]
     )
-    row = query_db('SELECT * FROM menu_items WHERE id=?', [item_id], one=True)
-    if not row:
-        return jsonify({'message': 'Item not found'}), 404
-    return jsonify(_row_to_dict(row))
+    updated = query_db('SELECT * FROM menu_items WHERE id=?', [item_id], one=True)
+    return jsonify(_row_to_dict(updated))
 
 
 @menu_bp.route('/api/menu/item/<int:item_id>', methods=['DELETE'])
 @require_auth
 def delete_item(item_id):
-    row = query_db('SELECT id FROM menu_items WHERE id=?', [item_id], one=True)
+    row = query_db('SELECT id, restaurant_id FROM menu_items WHERE id=?', [item_id], one=True)
     if not row:
         return jsonify({'message': 'Menu item not found'}), 404
+
+    # SECURITY FIX: IDOR — verify item ownership before deleting
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
+
     execute_db('DELETE FROM menu_items WHERE id=?', [item_id])
     return jsonify({'message': 'Item deleted'})

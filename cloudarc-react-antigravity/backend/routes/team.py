@@ -1,5 +1,5 @@
 import json
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import query_db, execute_db
 from auth_middleware import require_auth
 
@@ -15,6 +15,10 @@ def _row_to_dict(r):
 @team_bp.route('/api/team/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_team(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     rows = query_db(
         'SELECT * FROM team_members WHERE restaurant_id=? ORDER BY name',
         [restaurant_id]
@@ -25,6 +29,10 @@ def get_team(restaurant_id):
 @team_bp.route('/api/team/<int:restaurant_id>', methods=['POST'])
 @require_auth
 def create_member(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     data = request.get_json(silent=True) or {}
     name        = (data.get('name') or '').strip()
     role        = data.get('role') or ''
@@ -55,6 +63,10 @@ def update_member(member_id):
     if not row:
         return jsonify({'message': 'Team member not found'}), 404
 
+    # SECURITY FIX: IDOR — verify this team member belongs to the caller's restaurant
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
+
     name        = data.get('name', row['name'])
     role        = data.get('role', row['role'])
     email       = data.get('email', row['email'])
@@ -76,8 +88,13 @@ def update_member(member_id):
 @team_bp.route('/api/team/member/<int:member_id>', methods=['DELETE'])
 @require_auth
 def delete_member(member_id):
-    row = query_db('SELECT id FROM team_members WHERE id=?', [member_id], one=True)
+    row = query_db('SELECT id, restaurant_id FROM team_members WHERE id=?', [member_id], one=True)
     if not row:
         return jsonify({'message': 'Team member not found'}), 404
+
+    # SECURITY FIX: IDOR — verify this team member belongs to the caller's restaurant
+    if g.restaurant_id != row['restaurant_id']:
+        return jsonify({'message': 'Forbidden'}), 403
+
     execute_db('DELETE FROM team_members WHERE id=?', [member_id])
     return jsonify({'message': 'Team member removed'})

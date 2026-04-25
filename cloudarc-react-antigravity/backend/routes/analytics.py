@@ -1,6 +1,6 @@
 import json
 from datetime import date, timedelta, datetime
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import query_db
 from auth_middleware import require_auth
 
@@ -24,6 +24,10 @@ def _period_start(period_str):
 @analytics_bp.route('/api/analytics/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_analytics(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     period = request.args.get('period', '7d')
     start = _period_start(period)
     now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
@@ -104,7 +108,7 @@ def get_analytics(restaurant_id):
         for k, v in sorted(item_agg.items(), key=lambda x: -x[1]['orders'])
     ][:10]
 
-    # ── Orders by Hour (fill all 24 hours so chart has no gaps) ───
+    # ── Orders by Hour ─────────────────────────────────────────────
     hour_rows = query_db(
         '''SELECT strftime('%H:00', created_at) as hour,
                   COUNT(*) as count
@@ -119,10 +123,9 @@ def get_analytics(restaurant_id):
         hour_map[r['hour']] = r['count']
     orders_by_hour = [{'hour': h, 'count': c} for h, c in sorted(hour_map.items())]
 
-    # ── Performance (calculated from real data) ────────────────────
+    # ── Performance ────────────────────────────────────────────────
     total = summary['total_orders']
 
-    # Completion rate: completed orders / all orders in period
     completed_row = query_db(
         '''SELECT COUNT(*) as cnt FROM orders
            WHERE restaurant_id=? AND status='completed'
@@ -131,7 +134,6 @@ def get_analytics(restaurant_id):
     )
     completed_count = completed_row['cnt'] if completed_row else 0
 
-    # Cancelled orders
     cancelled_row = query_db(
         '''SELECT COUNT(*) as cnt FROM orders
            WHERE restaurant_id=? AND status='cancelled'
@@ -140,12 +142,9 @@ def get_analytics(restaurant_id):
     )
     cancelled_count = cancelled_row['cnt'] if cancelled_row else 0
 
-    # Fulfillment rate = non-cancelled / total
     fulfillment_rate = round(((total - cancelled_count) / max(total, 1)) * 100)
-    # Completion rate = completed / total
     completion_rate = round((completed_count / max(total, 1)) * 100)
 
-    # Average items per order
     avg_items_row = query_db(
         '''SELECT items FROM orders
            WHERE restaurant_id=? AND created_at BETWEEN ? AND ?''',
@@ -157,7 +156,6 @@ def get_analytics(restaurant_id):
         total_items += sum(int(i.get('qty') or i.get('quantity') or 1) for i in items)
     avg_items = round(total_items / max(total, 1), 1)
 
-    # Peak hour
     peak_hour = max(orders_by_hour, key=lambda x: x['count'])['hour'] if orders_by_hour else '12:00'
 
     performance = {

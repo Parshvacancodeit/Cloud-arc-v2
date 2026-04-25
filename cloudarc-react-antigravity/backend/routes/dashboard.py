@@ -1,6 +1,6 @@
 import json
 from datetime import date, datetime, timedelta
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import query_db
 from auth_middleware import require_auth
 
@@ -15,19 +15,21 @@ def _today_range():
 @dashboard_bp.route('/api/dashboard/stats/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_stats(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     today_start, today_end = _today_range()
     yesterday = (date.today() - timedelta(days=1)).isoformat()
     yest_start = f"{yesterday} 00:00:00"
     yest_end   = f"{yesterday} 23:59:59"
 
-    # Today's orders
     today_orders_row = query_db(
         "SELECT COUNT(*) as cnt FROM orders WHERE restaurant_id=? AND created_at BETWEEN ? AND ?",
         [restaurant_id, today_start, today_end], one=True
     )
     today_orders = today_orders_row['cnt'] if today_orders_row else 0
 
-    # Yesterday's orders (for trend)
     yest_orders_row = query_db(
         "SELECT COUNT(*) as cnt FROM orders WHERE restaurant_id=? AND created_at BETWEEN ? AND ?",
         [restaurant_id, yest_start, yest_end], one=True
@@ -37,21 +39,18 @@ def get_stats(restaurant_id):
     if yest_orders > 0:
         trend_pct = round(((today_orders - yest_orders) / yest_orders) * 100)
 
-    # Active orders (not dispatched)
     active_row = query_db(
-        "SELECT COUNT(*) as cnt FROM orders WHERE restaurant_id=? AND status != 'dispatched'",
+        "SELECT COUNT(*) as cnt FROM orders WHERE restaurant_id=? AND status NOT IN ('dispatched', 'completed', 'cancelled')",
         [restaurant_id], one=True
     )
     active_orders = active_row['cnt'] if active_row else 0
 
-    # Today's revenue
     rev_row = query_db(
         "SELECT COALESCE(SUM(total_amount),0) as rev FROM orders WHERE restaurant_id=? AND created_at BETWEEN ? AND ?",
         [restaurant_id, today_start, today_end], one=True
     )
     today_revenue = round(rev_row['rev'], 2) if rev_row else 0
 
-    # Avg revenue trend vs 7-day avg
     week_start = (date.today() - timedelta(days=7)).isoformat() + " 00:00:00"
     week_rev_row = query_db(
         "SELECT COALESCE(SUM(total_amount),0)/7.0 as avg_rev FROM orders WHERE restaurant_id=? AND created_at BETWEEN ? AND ?",
@@ -60,19 +59,16 @@ def get_stats(restaurant_id):
     avg_rev = week_rev_row['avg_rev'] if week_rev_row else 1
     rev_trend = round(((today_revenue - avg_rev) / max(avg_rev, 1)) * 100) if avg_rev else 0
 
-    # Menu item count
     menu_row = query_db(
         "SELECT COUNT(*) as cnt FROM menu_items WHERE restaurant_id=?", [restaurant_id], one=True
     )
     menu_count = menu_row['cnt'] if menu_row else 0
 
-    # Team member count
     team_row = query_db(
         "SELECT COUNT(*) as cnt FROM team_members WHERE restaurant_id=?", [restaurant_id], one=True
     )
     team_count = team_row['cnt'] if team_row else 0
 
-    # Avg prep time (simple estimate from restaurant settings)
     rest_row = query_db("SELECT avg_prep_time FROM restaurants WHERE id=?", [restaurant_id], one=True)
     avg_prep = rest_row['avg_prep_time'] if rest_row else 18
 
@@ -92,6 +88,10 @@ def get_stats(restaurant_id):
 @dashboard_bp.route('/api/dashboard/recent-orders/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_recent_orders(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     limit = min(int(request.args.get('limit', 5)), 20)
     rows = query_db(
         '''SELECT id, order_number, platform, status, total_amount, created_at,
@@ -118,6 +118,10 @@ def get_recent_orders(restaurant_id):
 @dashboard_bp.route('/api/dashboard/alerts/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_alerts(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     rows = query_db(
         '''SELECT id, title, message, type, created_at
            FROM alerts WHERE restaurant_id=? AND is_read=0
@@ -130,7 +134,10 @@ def get_alerts(restaurant_id):
 @dashboard_bp.route('/api/dashboard/platform-stats/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_platform_stats(restaurant_id):
-    """Returns order count and revenue broken down by platform for today."""
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     today_start, today_end = _today_range()
     rows = query_db(
         '''SELECT platform, 

@@ -1,5 +1,7 @@
-from flask import Blueprint, render_template_string
+from flask import Blueprint, render_template_string, request, jsonify
 from database import query_db
+from auth_middleware import require_auth
+import os
 
 db_viewer_bp = Blueprint('db_viewer', __name__)
 
@@ -19,10 +21,12 @@ HTML_TEMPLATE = """
         tr:nth-child(even) { background: #1a2235; }
         tr:hover { background: #2d3748; }
         .empty { color: #94a3b8; font-style: italic; }
+        .warning { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); padding: 12px 16px; border-radius: 8px; color: #f87171; margin-bottom: 20px; font-weight: 600; }
     </style>
 </head>
 <body>
     <h1>📦 CloudArc Database Viewer</h1>
+    <div class="warning">⚠️ DEBUG ONLY — This endpoint is disabled in production. Do not expose this URL publicly.</div>
     
     {% for table_name, columns, rows in tables %}
     <div class="table-container">
@@ -55,21 +59,34 @@ HTML_TEMPLATE = """
 </html>
 """
 
+# ── SECURITY FIX: This endpoint now requires authentication AND only works in DEBUG mode ──
 @db_viewer_bp.route('/api/debug/db-viewer')
+@require_auth
 def view_db():
-    # Only allow for debugging/demo
+    # Hard block in production — DEBUG must be explicitly set to 'true' in environment
+    if not (os.getenv('DEBUG', 'false').lower() == 'true'):
+        return jsonify({'message': 'This endpoint is disabled in production'}), 403
+
     tables_to_show = ['users', 'restaurants', 'menu_items', 'orders', 'team_members', 'alerts', 'customers']
     data = []
     
     for table in tables_to_show:
         try:
-            # Get columns
             columns_info = query_db(f"PRAGMA table_info({table})")
             columns = [c['name'] for c in columns_info]
             
-            # Get rows
+            # Mask sensitive columns instead of hiding the table
             rows = query_db(f"SELECT * FROM {table}")
-            data.append((table, columns, rows))
+            masked_rows = []
+            SENSITIVE_COLS = {'password_hash', 'gst_number', 'fssai_license'}
+            for row in rows:
+                d = dict(row)
+                for col in SENSITIVE_COLS:
+                    if col in d:
+                        d[col] = '*** REDACTED ***'
+                masked_rows.append(d)
+
+            data.append((table, columns, masked_rows))
         except Exception as e:
             print(f"Error reading table {table}: {e}")
             

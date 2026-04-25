@@ -53,6 +53,10 @@ const Settings = () => {
         uberEatsConnected: data.uber_eats_connected ?? false,
         operatingHours: data.operating_hours || DEFAULT_HOURS,
       });
+      // Sync prep time to localStorage so KanbanBoard surge timer is accurate
+      if (data.avg_prep_time) {
+        localStorage.setItem('avg_prep_time', String(data.avg_prep_time));
+      }
     } catch (err) {
       setError(err.message || 'Failed to load settings');
     } finally {
@@ -97,9 +101,12 @@ const Settings = () => {
         low_stock_alerts: settings.lowStockAlerts,
         peak_hour_reminders: settings.peakHourReminders,
         operating_hours: settings.operatingHours,
+        // BUGFIX: Integration flags now included so they persist on Save
+        zomato_connected: settings.zomatoConnected,
+        swiggy_connected: settings.swiggyConnected,
+        uber_eats_connected: settings.uberEatsConnected,
       };
       await settingsApi.update(restaurantId, payload);
-      // Update localStorage kitchen name
       localStorage.setItem('kitchen_name', settings.kitchenName);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
@@ -107,6 +114,24 @@ const Settings = () => {
       alert('Failed to save: ' + err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // BUGFIX: Connect/Disconnect button calls the dedicated PATCH endpoint immediately
+  // so the integration status persists to the DB without requiring the user to hit Save.
+  const PLATFORM_KEY_MAP = {
+    zomatoConnected: 'zomato',
+    swiggyConnected: 'swiggy',
+    uberEatsConnected: 'uber_eats',
+  };
+
+  const handleIntegrationToggle = async (field, newValue) => {
+    handleInputChange(field, newValue); // Optimistic UI update
+    try {
+      await settingsApi.toggleIntegration(restaurantId, PLATFORM_KEY_MAP[field], newValue);
+    } catch (err) {
+      handleInputChange(field, !newValue); // Revert on failure
+      alert('Failed to update integration: ' + err.message);
     }
   };
 
@@ -227,23 +252,29 @@ const Settings = () => {
           {activeTab === 'integrations' && (
             <div className="settings-section">
               <h2>Platform Integrations</h2>
-              <p className="section-description">Manage your delivery platform connections</p>
+              <p className="section-description">Manage and sync your delivery platform connections</p>
               <div className="integration-list">
                 {[
-                  ['zomatoConnected', 'Zomato', 'Sync menu and orders from Zomato', '#E23744', 'Z'],
-                  ['swiggyConnected', 'Swiggy', 'Sync menu and orders from Swiggy', '#FC8019', 'S'],
-                  ['uberEatsConnected', 'Uber Eats', 'Sync menu and orders from Uber Eats', '#06C167', 'U'],
+                  ['zomatoConnected', 'Zomato', 'Sync menu/orders from Zomato', '#E23744', 'Z'],
+                  ['swiggyConnected', 'Swiggy', 'Sync menu/orders from Swiggy', '#FC8019', 'S'],
+                  ['uberEatsConnected', 'Uber Eats', 'Sync menu/orders from Uber Eats', '#06C167', 'U'],
                 ].map(([field, name, desc, color, letter]) => (
-                  <div key={field} className="integration-card">
+                  <div key={field} className={`integration-card ${settings[field] ? 'connected' : ''}`}>
                     <div className="integration-info">
-                      <div className="integration-icon" style={{ background: color }}>{letter}</div>
-                      <div><h4>{name}</h4><p>{desc}</p></div>
+                      <div className="integration-icon" style={{ background: color, boxShadow: `0 4px 12px ${color}40` }}>{letter}</div>
+                      <div>
+                        <h4>{name}</h4>
+                        <p>{desc}</p>
+                      </div>
                     </div>
                     <div className="integration-status">
                       {settings[field] ? (
-                        <><span className="status-badge connected">Connected</span><button className="btn-secondary small">Configure</button></>
+                        <>
+                          <span className="status-badge connected">Live</span>
+                          <button className="btn-secondary small" onClick={() => handleIntegrationToggle(field, false)}>Disconnect</button>
+                        </>
                       ) : (
-                        <button className="btn-primary small" onClick={() => handleInputChange(field, true)}>Connect</button>
+                        <button className="btn-primary small" onClick={() => handleIntegrationToggle(field, true)}>Connect Account</button>
                       )}
                     </div>
                   </div>

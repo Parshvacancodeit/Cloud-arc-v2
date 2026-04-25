@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight, FiDollarSign, FiClock, FiX, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight, FiDollarSign, FiClock, FiX, FiRefreshCw, FiAlertCircle, FiStar } from 'react-icons/fi';
+import { IoLeaf, IoFlame, IoFastFoodOutline } from 'react-icons/io5';
 import { menuApi } from '../../services/api';
 import '../../styles/MenuManagement.css';
 
@@ -51,10 +52,19 @@ const MenuManagement = () => {
 
   const categories = ['All', ...new Set(menuItems.map(i => i.category).filter(Boolean))];
 
+  const [vegFilter, setVegFilter] = useState('all'); // 'all' | 'veg' | 'nonveg' | 'bestseller'
+
   const filteredItems = menuItems.filter(item => {
-    const matchCat = selectedCategory === 'All' || item.category === selectedCategory;
-    const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || (item.description || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchCat && matchSearch;
+    const q = searchTerm.toLowerCase();
+    const matchCat    = selectedCategory === 'All' || item.category === selectedCategory;
+    const matchSearch = !q || [
+      item.name, item.description, item.category,
+    ].some(s => (s || '').toLowerCase().includes(q));
+    const matchVeg = vegFilter === 'all' ? true
+      : vegFilter === 'veg' ? item.veg
+      : vegFilter === 'nonveg' ? !item.veg
+      : item.bestseller; // 'bestseller'
+    return matchCat && matchSearch && matchVeg;
   });
 
   const toggleAvailability = async (item) => {
@@ -163,12 +173,40 @@ const MenuManagement = () => {
       <div className="menu-controls">
         <div className="search-box">
           <FiSearch />
-          <input type="text" placeholder="Search menu items..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <input
+            type="text"
+            placeholder="Search dish or category..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="kds-search-clear"
+            >
+              <FiX size={14} />
+            </button>
+          )}
         </div>
         <div className="category-filters">
           {categories.map(cat => (
             <button key={cat} className={`category-btn ${selectedCategory === cat ? 'active' : ''}`} onClick={() => setSelectedCategory(cat)}>{cat}</button>
           ))}
+        </div>
+        <div className="category-filters" style={{ marginTop: 6 }}>
+          {[
+            ['all','All'],
+            ['veg', <><IoLeaf style={{ color: '#10B981', marginRight: 4 }} /> Veg</>],
+            ['nonveg', <><IoFastFoodOutline style={{ color: '#EF4444', marginRight: 4 }} /> Non-veg</>],
+            ['bestseller', <><FiStar style={{ color: '#F59E0B', marginRight: 4 }} /> Bestseller</>]
+          ].map(([value, label]) => (
+            <button key={value} className={`category-btn ${vegFilter === value ? 'active' : ''}`} onClick={() => setVegFilter(value)}>{label}</button>
+          ))}
+          {(searchTerm || selectedCategory !== 'All' || vegFilter !== 'all') && (
+            <span style={{ fontSize: 12, color: '#00ADB5', fontWeight: 700, padding: '4px 10px', background: 'rgba(0,173,181,0.08)', borderRadius: 20 }}>
+              {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
       </div>
 
@@ -184,8 +222,14 @@ const MenuManagement = () => {
           <div key={item.id} className={`menu-card ${!item.available ? 'unavailable' : ''}`}>
             <div className="menu-card-image">
               <img src={item.image} alt={item.name} onError={(e) => { e.target.src = 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg'; }} />
-              {item.bestseller && <div className="bestseller-badge">Bestseller</div>}
-              <div className="veg-badge" style={{ background: item.veg ? '#10B981' : '#EF4444' }}>{item.veg ? '●' : '▲'}</div>
+              {item.bestseller && (
+                <div className="bestseller-badge">
+                  <IoFlame style={{ marginRight: 3 }} /> Bestseller
+                </div>
+              )}
+              <div className="veg-badge" style={{ background: item.veg ? '#10B981' : '#EF4444' }}>
+                {item.veg ? <IoLeaf size={12} /> : <IoFastFoodOutline size={12} />}
+              </div>
             </div>
             <div className="menu-card-content">
               <div className="menu-card-header">

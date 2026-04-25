@@ -7,6 +7,327 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.team-header h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.team-header p { color: var(--text-gray); font-size: 0.9rem; margin: 0; }
+
+/* ── Controls ─────────────────────────────────────── */
+.team-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.role-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Stats ────────────────────────────────────────── */
+.team-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 173, 181, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-card .stat-label { font-size: 0.82rem; color: var(--text-gray); margin-bottom: 0.4rem; font-weight: 600; }
+.stat-card .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text-dark); line-height: 1; }
+
+/* ── Team Grid ────────────────────────────────────── */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+}
+
+/* ── Member Card ──────────────────────────────────── */
+.member-card {
+  background: white;
+  border-radius: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 173, 181, 0.1);
+  transition: all 0.2s;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.member-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0, 173, 181, 0.12); }
+.member-card.inactive { opacity: 0.65; filter: saturate(0.4); }
+
+.member-status-stripe { height: 4px; width: 100%; }
+
+.member-header {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  padding: 1.25rem 1.25rem 0.75rem;
+}
+
+.member-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.member-info { flex: 1; }
+.member-info h3 { font-size: 1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 2px; }
+.member-role { font-size: 0.8rem; color: var(--text-gray); }
+
+.shift-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.on-shift-indicator {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #10B981;
+}
+
+.member-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0 1.25rem 1rem;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--text-gray);
+  font-size: 0.82rem;
+}
+
+.detail-row svg { color: var(--cyan); flex-shrink: 0; }
+
+.permissions-section {
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid rgba(0, 173, 181, 0.08);
+}
+
+.permissions-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 0.5rem;
+}
+
+.permissions-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.permission-tag {
+  padding: 2px 8px;
+  background: rgba(0, 173, 181, 0.08);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.member-actions {
+  display: flex;
+  gap: 6px;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid rgba(0, 173, 181, 0.06);
+  background: #fafafa;
+}
+
+.action-btn.status-active  { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.25); }
+.action-btn.status-inactive{ background: rgba(239,68,68,0.08); color: #dc2626; border: 1px solid rgba(239,68,68,0.2); }
+
+/* ── Shift Schedule ───────────────────────────────── */
+.shift-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.shift-block {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 173, 181, 0.1);
+  overflow: hidden;
+}
+
+.shift-block.shift-current {
+  box-shadow: 0 4px 20px rgba(0, 173, 181, 0.12);
+}
+
+.shift-block-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.85rem 1rem;
+  border-bottom: 2px solid transparent;
+  background: #fafafa;
+  flex-wrap: wrap;
+}
+
+.shift-block-title { font-size: 0.85rem; font-weight: 800; }
+.shift-block-sub   { font-size: 0.72rem; color: var(--text-gray); flex: 1; text-align: right; }
+
+.shift-now-badge {
+  background: #00ADB5;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.shift-block-members {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 80px;
+}
+
+.shift-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-gray);
+  font-size: 0.8rem;
+}
+
+.shift-member-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 173, 181, 0.07);
+}
+
+.shift-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(0, 173, 181, 0.12);
+  color: var(--cyan);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.shift-member-name { font-size: 0.82rem; font-weight: 700; color: var(--text-dark); }
+.shift-member-role { font-size: 0.7rem; color: var(--text-gray); }
+
+/* ── Station Load ─────────────────────────────────── */
+.station-load-section {
+  background: white;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 173, 181, 0.1);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.station-load-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  margin-bottom: 1rem;
+}
+
+.station-bars { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.station-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.station-bar-label { font-size: 0.8rem; font-weight: 600; color: var(--text-gray); min-width: 100px; }
+
+.station-bar-track {
+  flex: 1;
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.station-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--cyan), #008a91);
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.station-bar-count { font-size: 0.8rem; font-weight: 700; color: var(--text-dark); min-width: 20px; text-align: right; }
+
+/* ── Shared ───────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-gray);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.empty-state svg { width: 36px; height: 36px; opacity: 0.4; }
+.empty-state h3  { font-size: 1.1rem; font-weight: 700; color: var(--text-dark); margin: 0; }
+.empty-state p   { font-size: 0.85rem; margin: 0; }
+
+/* ── Responsive ───────────────────────────────────── */
+@media (max-width: 1200px) {
+  .shift-schedule-grid { grid-template-columns: repeat(2, 1fr); }
+  .team-grid { grid-template-columns: repeat(2, 1fr); }
+  .team-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .shift-schedule-grid { grid-template-columns: 1fr; }
+  .team-grid { grid-template-columns: 1fr; }
+  .team-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+
+.team-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 2rem;
 }
 

@@ -125,6 +125,9 @@ export const settingsApi = {
     api.put(`/api/settings/${restaurantId}`, data),
   toggleStatus: (restaurantId, isActive) =>
     api.patch(`/api/settings/${restaurantId}/status`, { is_active: isActive }),
+  // Dedicated integration connect/disconnect — maps field name → platform key
+  toggleIntegration: (restaurantId, platform, connected) =>
+    api.patch(`/api/settings/${restaurantId}/integration`, { platform, connected }),
 };
 
 // ─── Public (Customer App) ──────────────────────────────────

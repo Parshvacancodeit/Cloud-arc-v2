@@ -1,5 +1,5 @@
 import json
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from database import query_db, execute_db
 from auth_middleware import require_auth
 
@@ -31,6 +31,10 @@ def _row_to_dict(r):
 @settings_bp.route('/api/settings/<int:restaurant_id>', methods=['GET'])
 @require_auth
 def get_settings(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     row = query_db('SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True)
     if not row:
         return jsonify({'message': 'Restaurant not found'}), 404
@@ -40,6 +44,10 @@ def get_settings(restaurant_id):
 @settings_bp.route('/api/settings/<int:restaurant_id>', methods=['PUT'])
 @require_auth
 def update_settings(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     row = query_db('SELECT id FROM restaurants WHERE id=?', [restaurant_id], one=True)
     if not row:
         return jsonify({'message': 'Restaurant not found'}), 404
@@ -71,6 +79,9 @@ def update_settings(restaurant_id):
              low_stock_alerts=COALESCE(?, low_stock_alerts),
              peak_hour_reminders=COALESCE(?, peak_hour_reminders),
              operating_hours=COALESCE(?, operating_hours),
+             zomato_connected=COALESCE(?, zomato_connected),
+             swiggy_connected=COALESCE(?, swiggy_connected),
+             uber_eats_connected=COALESCE(?, uber_eats_connected),
              updated_at=datetime('now')
            WHERE id=?''',
         [
@@ -94,14 +105,24 @@ def update_settings(restaurant_id):
             _b(data.get('low_stock_alerts')) if 'low_stock_alerts' in data else None,
             _b(data.get('peak_hour_reminders')) if 'peak_hour_reminders' in data else None,
             json.dumps(data['operating_hours']) if 'operating_hours' in data else None,
+            # BUGFIX: Integration connection flags now included so "Connect" button persists
+            _b(data.get('zomato_connected')) if 'zomato_connected' in data else None,
+            _b(data.get('swiggy_connected')) if 'swiggy_connected' in data else None,
+            _b(data.get('uber_eats_connected')) if 'uber_eats_connected' in data else None,
             restaurant_id,
         ]
     )
     updated = query_db('SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True)
     return jsonify(_row_to_dict(updated))
+
+
 @settings_bp.route('/api/settings/<int:restaurant_id>/status', methods=['PATCH'])
 @require_auth
 def toggle_status(restaurant_id):
+    # SECURITY FIX: IDOR — verify caller owns this restaurant
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
     row = query_db('SELECT id, is_active FROM restaurants WHERE id=?', [restaurant_id], one=True)
     if not row:
         return jsonify({'message': 'Restaurant not found'}), 404
@@ -112,6 +133,41 @@ def toggle_status(restaurant_id):
     execute_db(
         "UPDATE restaurants SET is_active=?, updated_at=datetime('now') WHERE id=?",
         [new_status, restaurant_id]
+    )
+
+    updated = query_db('SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True)
+    return jsonify(_row_to_dict(updated))
+
+
+@settings_bp.route('/api/settings/<int:restaurant_id>/integration', methods=['PATCH'])
+@require_auth
+def toggle_integration(restaurant_id):
+    """Dedicated endpoint to connect/disconnect delivery platform integrations."""
+    # SECURITY FIX: IDOR check
+    if g.restaurant_id != restaurant_id:
+        return jsonify({'message': 'Forbidden'}), 403
+
+    row = query_db('SELECT id FROM restaurants WHERE id=?', [restaurant_id], one=True)
+    if not row:
+        return jsonify({'message': 'Restaurant not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    platform = data.get('platform', '').lower()
+    connected = bool(data.get('connected', False))
+
+    VALID_PLATFORMS = {
+        'zomato': 'zomato_connected',
+        'swiggy': 'swiggy_connected',
+        'uber_eats': 'uber_eats_connected',
+    }
+
+    if platform not in VALID_PLATFORMS:
+        return jsonify({'message': f'Invalid platform. Must be one of: {list(VALID_PLATFORMS.keys())}'}), 400
+
+    col = VALID_PLATFORMS[platform]
+    execute_db(
+        f"UPDATE restaurants SET {col}=?, updated_at=datetime('now') WHERE id=?",
+        [1 if connected else 0, restaurant_id]
     )
 
     updated = query_db('SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True)

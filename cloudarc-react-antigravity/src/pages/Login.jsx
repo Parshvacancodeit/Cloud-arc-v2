@@ -49,6 +49,10 @@ const Login = () => {
       localStorage.setItem('restaurant_id', data.restaurant_id);
       localStorage.setItem('user_name', data.user?.name || '');
       localStorage.setItem('kitchen_name', data.restaurant?.name || '');
+      // Store prep time target so KanbanBoard can use it without an extra API call
+      if (data.restaurant?.avg_prep_time) {
+        localStorage.setItem('avg_prep_time', String(data.restaurant.avg_prep_time));
+      }
 
       navigate('/dashboard');
     } catch (err) {
