@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiChevronLeft, FiStar, FiClock, FiMapPin, FiCoffee, FiImage, FiPlus, FiMinus, FiArrowRight, FiShoppingBag } from 'react-icons/fi';
 import { customerApi } from '../services/api';
 import { useCart } from '../context/CartContext';
@@ -9,6 +9,8 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [heroIdx, setHeroIdx] = useState(0);
+  const heroTimerRef = useRef(null);
   const { cart, addItem, removeItem, totalItems, totalPrice } = useCart();
 
   useEffect(() => {
@@ -36,6 +38,18 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
     return found ? found.quantity : 0;
   };
 
+  // Build list of hero images from menu items that have images
+  const heroImages = menuItems.filter(i => i.image).map(i => i.image);
+
+  // Auto-rotate hero images every 3 seconds
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    heroTimerRef.current = setInterval(() => {
+      setHeroIdx(prev => (prev + 1) % heroImages.length);
+    }, 3000);
+    return () => clearInterval(heroTimerRef.current);
+  }, [heroImages.length]);
+
   if (loading) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="spinner"/><span>Loading menu...</span></div></div>;
   if (error || !restaurant) return (
     <div style={{ paddingTop: 48 }}>
@@ -58,18 +72,47 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
 
   return (
     <div className="menu-page-body">
-      <div style={{ position: 'relative' }}>
-        <div style={{ position: 'relative' }}>
-          <div style={{ width: '100%', height: 160, background: 'linear-gradient(135deg, rgba(0,173,181,0.2), rgba(10,14,26,0.8))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)', opacity: 0.5 }}>
-            {restaurant.logo_url
-              ? <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display='none'; }} />
-              : <FiImage size={60} />}
+      {/* ── Hero Banner with rotating menu images ── */}
+      <div style={{ position: 'relative', width: '100%', height: 180, overflow: 'hidden', background: 'linear-gradient(135deg, #0A0E1A, #1A2235)' }}>
+        {heroImages.length > 0 ? (
+          heroImages.map((src, idx) => (
+            <img
+              key={src}
+              src={src}
+              alt=""
+              style={{
+                position: 'absolute', inset: 0, width: '100%', height: '100%',
+                objectFit: 'cover',
+                opacity: idx === heroIdx ? 1 : 0,
+                transition: 'opacity 0.8s ease-in-out',
+              }}
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ))
+        ) : restaurant.logo_url ? (
+          <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.15)' }}>
+            <FiImage size={60} />
           </div>
-          <button className="back-btn" style={{ position: 'absolute', top: 12, left: 16, background: 'rgba(0,0,0,0.6)', padding: '8px 16px', borderRadius: 12, backdropFilter: 'blur(12px)', color: 'white' }}
-            onClick={() => onNavigate('list', { pincode: restaurant.pincode })}>
-            <FiChevronLeft size={18} /> Back
-          </button>
-        </div>
+        )}
+        {/* Dark overlay gradient */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%)' }} />
+        {/* Dot indicators */}
+        {heroImages.length > 1 && (
+          <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
+            {heroImages.map((_, i) => (
+              <div key={i} onClick={() => setHeroIdx(i)} style={{ width: i === heroIdx ? 18 : 6, height: 6, borderRadius: 4, background: i === heroIdx ? 'var(--teal)' : 'rgba(255,255,255,0.4)', transition: 'all 0.3s', cursor: 'pointer' }} />
+            ))}
+          </div>
+        )}
+        {/* Back button */}
+        <button
+          style={{ position: 'absolute', top: 12, left: 16, background: 'rgba(0,0,0,0.6)', border: 'none', padding: '7px 14px', borderRadius: 12, backdropFilter: 'blur(12px)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600 }}
+          onClick={() => onNavigate('list', { pincode: restaurant.pincode })}
+        >
+          <FiChevronLeft size={16} /> Back
+        </button>
       </div>
 
       <div className="detail-header">

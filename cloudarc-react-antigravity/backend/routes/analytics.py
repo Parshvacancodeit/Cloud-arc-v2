@@ -156,7 +156,8 @@ def get_analytics(restaurant_id):
         total_items += sum(int(i.get('qty') or i.get('quantity') or 1) for i in items)
     avg_items = round(total_items / max(total, 1), 1)
 
-    peak_hour = max(orders_by_hour, key=lambda x: x['count'])['hour'] if orders_by_hour else '12:00'
+    max_hour = max(orders_by_hour, key=lambda x: x['count']) if orders_by_hour else None
+    peak_hour = max_hour['hour'] if max_hour and max_hour['count'] > 0 else None
 
     performance = {
         'completion_rate': completion_rate,

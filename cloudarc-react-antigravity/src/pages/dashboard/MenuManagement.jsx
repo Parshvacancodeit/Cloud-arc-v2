@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight, FiDollarSign, FiClock, FiX, FiRefreshCw, FiAlertCircle, FiStar } from 'react-icons/fi';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { FiSearch, FiPlus, FiEdit2, FiTrash2, FiToggleLeft, FiToggleRight, FiDollarSign, FiClock, FiX, FiRefreshCw, FiAlertCircle, FiStar, FiUploadCloud, FiImage } from 'react-icons/fi';
 import { IoLeaf, IoFlame, IoFastFoodOutline } from 'react-icons/io5';
 import { menuApi } from '../../services/api';
 import '../../styles/MenuManagement.css';
 
 const PLATFORM_OPTIONS = ['Zomato', 'Swiggy', 'Uber Eats', 'Direct', 'CloudArc App'];
-const BLANK_FORM = { name: '', category: '', price: '', description: '', prepTime: '', veg: true, bestseller: false, platforms: [] };
+const BLANK_FORM = { name: '', category: '', price: '', description: '', prepTime: '', veg: true, bestseller: false, platforms: [], imageUrl: '' };
 
 const MenuManagement = () => {
   const restaurantId = localStorage.getItem('restaurant_id');
@@ -21,6 +21,10 @@ const MenuManagement = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [formData, setFormData] = useState(BLANK_FORM);
   const [formError, setFormError] = useState('');
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchMenu = useCallback(async () => {
     setLoading(true);
@@ -90,7 +94,9 @@ const MenuManagement = () => {
 
   const handleEdit = (item) => {
     setEditingItem(item);
-    setFormData({ name: item.name, category: item.category, price: item.price, description: item.description, prepTime: item.prepTime, veg: item.veg, bestseller: item.bestseller, platforms: item.platforms });
+    setFormData({ name: item.name, category: item.category, price: item.price, description: item.description, prepTime: item.prepTime, veg: item.veg, bestseller: item.bestseller, platforms: item.platforms, imageUrl: item.image || '' });
+    setImagePreview(item.image || '');
+    setImageFile(null);
     setShowAddModal(true);
   };
 
@@ -99,6 +105,21 @@ const MenuManagement = () => {
     setFormError('');
     setSaving(true);
     try {
+      let imageUrl = formData.imageUrl || '';
+
+      // Upload new image if one was selected
+      if (imageFile) {
+        setUploadingImage(true);
+        try {
+          const uploadRes = await menuApi.uploadImage(imageFile);
+          imageUrl = uploadRes.url || imageUrl;
+        } catch (uploadErr) {
+          throw new Error('Image upload failed: ' + (uploadErr.message || 'Unknown error'));
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
       const payload = {
         name: formData.name,
         category: formData.category,
@@ -109,6 +130,7 @@ const MenuManagement = () => {
         is_bestseller: formData.bestseller,
         platforms: formData.platforms,
         is_available: editingItem ? editingItem.available : true,
+        image_url: imageUrl,
       };
 
       if (editingItem) {
@@ -130,6 +152,8 @@ const MenuManagement = () => {
     setEditingItem(null);
     setFormData(BLANK_FORM);
     setFormError('');
+    setImageFile(null);
+    setImagePreview('');
   };
 
   const handlePlatformToggle = (platform) => {
@@ -137,6 +161,14 @@ const MenuManagement = () => {
       ...prev,
       platforms: prev.platforms.includes(platform) ? prev.platforms.filter(p => p !== platform) : [...prev.platforms, platform]
     }));
+  };
+
+  const handleImageFileChange = (file) => {
+    if (!file) return;
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setImagePreview(ev.target.result);
+    reader.readAsDataURL(file);
   };
 
   if (loading) return (
@@ -291,6 +323,47 @@ const MenuManagement = () => {
                     <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows="3" placeholder="Describe your dish..." />
                   </div>
                   <div className="form-group full-width">
+                    <label>Item Image</label>
+                    <div
+                      className="image-upload-zone"
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImageFileChange(f); }}
+                    >
+                      {imagePreview ? (
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          <img src={imagePreview} alt="preview" style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                          <button
+                            type="button"
+                            style={{ position: 'absolute', top: -8, right: -8, background: '#EF4444', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            onClick={(e) => { e.stopPropagation(); setImageFile(null); setImagePreview(''); setFormData(f => ({ ...f, imageUrl: '' })); }}
+                          ><FiX size={12} /></button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#94a3b8' }}>
+                          <FiUploadCloud size={32} style={{ color: '#00ADB5' }} />
+                          <span style={{ fontWeight: 600, fontSize: 14 }}>Click or drag &amp; drop an image</span>
+                          <span style={{ fontSize: 12 }}>PNG, JPG, WEBP — max 5 MB</span>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleImageFileChange(e.target.files[0])}
+                    />
+                    {/* Fallback URL input */}
+                    <input
+                      type="url"
+                      value={formData.imageUrl}
+                      onChange={(e) => { setFormData({ ...formData, imageUrl: e.target.value }); setImagePreview(e.target.value); setImageFile(null); }}
+                      placeholder="Or paste an image URL"
+                      style={{ marginTop: 8, padding: '0.6rem 0.9rem', border: '1px solid rgba(0,173,181,0.2)', borderRadius: 8, fontSize: '0.9rem', width: '100%' }}
+                    />
+                  </div>
+                  <div className="form-group full-width">
                     <label>Available on Platforms</label>
                     <div className="platform-checkboxes">
                       {PLATFORM_OPTIONS.map(p => (
@@ -315,7 +388,7 @@ const MenuManagement = () => {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving...' : editingItem ? 'Update Item' : 'Add Item'}</button>
+                <button type="submit" className="btn-primary" disabled={saving || uploadingImage}>{saving || uploadingImage ? (uploadingImage ? 'Uploading…' : 'Saving...') : editingItem ? 'Update Item' : 'Add Item'}</button>
               </div>
             </form>
           </div>

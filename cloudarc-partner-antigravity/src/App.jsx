@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   FiSearch, FiShoppingBag, FiUser, FiClock, FiStar, FiChevronLeft, 
   FiMapPin, FiCheckCircle, FiZap, FiSmartphone, FiCoffee, FiAlertTriangle, 
@@ -733,6 +733,8 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeCategory, setActiveCategory] = useState('All');
+  const [heroIdx, setHeroIdx] = useState(0);
+  const heroTimer = useRef(null);
   const { cart, addItem, removeItem, totalItems, totalPrice } = useCart();
 
   useEffect(() => {
@@ -755,6 +757,17 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
       .finally(() => setLoading(false));
   }, [restaurantId]);
 
+  const heroImages = menuItems.filter(i => i.image).map(i => i.image);
+
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    heroTimer.current = setInterval(() => setHeroIdx(p => (p + 1) % heroImages.length), 3000);
+    return () => clearInterval(heroTimer.current);
+  }, [heroImages.length]);
+
+  if (loading) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="spinner"/><span>Loading menu...</span></div></div>;
+  if (error || !restaurant) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="empty-icon">⚠️</div><div className="empty-title">Could not load</div><div className="empty-desc">{error}</div><button className="primary-btn" style={{ marginTop: 16 }} onClick={() => onNavigate('home', {})}>Go Home</button></div></div>;
+
   const categories = ['All', ...new Set(menuItems.map(i => i.category))];
   const filteredMenu = activeCategory === 'All' ? menuItems : menuItems.filter(i => i.category === activeCategory);
 
@@ -762,9 +775,6 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
     const found = cart.items.find(i => i.id === itemId);
     return found ? found.quantity : 0;
   };
-
-  if (loading) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="spinner"/><span>Loading menu...</span></div></div>;
-  if (error || !restaurant) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="empty-icon">⚠️</div><div className="empty-title">Could not load</div><div className="empty-desc">{error}</div><button className="primary-btn" style={{ marginTop: 16 }} onClick={() => onNavigate('home', {})}>Go Home</button></div></div>;
 
   const grouped = {};
   filteredMenu.forEach(item => {
@@ -774,15 +784,32 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
 
   return (
     <div className="menu-page-body">
-      <div style={{ position: 'relative' }}>
-      <div style={{ position: 'relative' }}>
-        <div style={{ width: '100%', height: 160, background: '#f2f2f3', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
-          {restaurant.logo_url ? <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display='none'; }} /> : <FiImage size={60} />}
-        </div>
-        <button className="back-btn" style={{ position: 'absolute', top: 12, left: 16, background: 'rgba(0,0,0,0.6)', padding: '8px 16px', borderRadius: 12, backdropFilter: 'blur(12px)', color: 'white' }} onClick={() => onNavigate('list', { pincode: restaurant.pincode })}>
-          <FiChevronLeft size={18} /> Back
+      {/* ── Rotating hero image carousel ── */}
+      <div style={{ position: 'relative', width: '100%', height: 180, overflow: 'hidden', background: '#f2f2f3' }}>
+        {heroImages.length > 0 ? (
+          heroImages.map((src, idx) => (
+            <img key={src} src={src} alt=""
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: idx === heroIdx ? 1 : 0, transition: 'opacity 0.8s ease-in-out' }}
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
+          ))
+        ) : restaurant.logo_url ? (
+          <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)' }}><FiImage size={60} /></div>
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)' }} />
+        {heroImages.length > 1 && (
+          <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
+            {heroImages.map((_, i) => (
+              <div key={i} onClick={() => setHeroIdx(i)} style={{ width: i === heroIdx ? 18 : 6, height: 6, borderRadius: 4, background: i === heroIdx ? '#FC8019' : 'rgba(255,255,255,0.5)', transition: 'all 0.3s', cursor: 'pointer' }} />
+            ))}
+          </div>
+        )}
+        <button style={{ position: 'absolute', top: 12, left: 16, background: 'rgba(0,0,0,0.5)', border: 'none', padding: '7px 14px', borderRadius: 12, backdropFilter: 'blur(8px)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600 }}
+          onClick={() => onNavigate('list', { pincode: restaurant.pincode })}>
+          <FiChevronLeft size={16} /> Back
         </button>
-      </div>
       </div>
 
       <div className="detail-header">

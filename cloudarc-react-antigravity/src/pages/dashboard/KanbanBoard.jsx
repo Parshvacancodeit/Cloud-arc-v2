@@ -5,7 +5,7 @@ import {
   FiFilter, FiAlertTriangle, FiUser, FiMessageSquare,
   FiChevronRight, FiZap, FiEye,
 } from 'react-icons/fi';
-import { ordersApi } from '../../services/api';
+import { ordersApi, teamApi } from '../../services/api';
 import '../../styles/KanbanBoard.css';
 
 const COLUMNS = [
@@ -78,8 +78,10 @@ const PrepTimerRing = ({ acceptedAt, prepMins, currentTime }) => {
 };
 
 // ─── Search Bar ───────────────────────────────────────────────
-const KanbanSearchBar = ({ value, onChange, platformFilter, onPlatformChange, orderCount }) => {
+const KanbanSearchBar = ({ value, onChange, platformFilter, onPlatformChange, stationFilter, onStationChange, orderCount }) => {
   const platforms = ['All', 'Direct', 'CloudArc App', 'Zomato', 'Swiggy', 'Partner App'];
+  const stations = ['All', 'Grill', 'Fry', 'Cold', 'Dessert', 'Packaging'];
+
   return (
     <div className="kds-search-row">
       <div className="kds-search-box">
@@ -99,15 +101,19 @@ const KanbanSearchBar = ({ value, onChange, platformFilter, onPlatformChange, or
       </div>
       <div className="kds-filter-pills">
         <FiFilter size={13} style={{ color: 'var(--text-gray)', marginRight: 4, flexShrink: 0 }} />
-        {platforms.map(p => (
-          <button
-            key={p}
-            className={`kds-filter-pill ${platformFilter === p ? 'active' : ''}`}
-            onClick={() => onPlatformChange(p)}
-          >
-            {p}
-          </button>
-        ))}
+        <div className="kds-filter-group">
+          <span className="kds-filter-label">PLATFORM</span>
+          {platforms.map(p => (
+            <button key={p} className={`kds-filter-pill ${platformFilter === p ? 'active' : ''}`} onClick={() => onPlatformChange(p)}>{p}</button>
+          ))}
+        </div>
+        <div className="kds-ops-divider" style={{ height: 20, margin: '0 4px' }} />
+        <div className="kds-filter-group">
+          <span className="kds-filter-label">STATION</span>
+          {stations.map(s => (
+            <button key={s} className={`kds-filter-pill ${stationFilter === s ? 'active' : ''}`} onClick={() => onStationChange(s)}>{s}</button>
+          ))}
+        </div>
       </div>
       {(value || platformFilter !== 'All') && (
         <span className="kds-result-count">{orderCount} result{orderCount !== 1 ? 's' : ''}</span>
@@ -125,15 +131,19 @@ const KanbanBoard = () => {
   const [showCompleted, setShowCompleted]   = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
   const [platformFilter, setPlatformFilter] = useState('All');
+  const [stationFilter, setStationFilter]   = useState('All');
   const [notifiedOrders, setNotifiedOrders] = useState({});
   const [surgeToast, setSurgeToast]         = useState(null);
-  const [expandedCard, setExpandedCard]     = useState(null); // orderId of expanded card
-  const surgeNotifiedRef = useRef({});
+  const [expandedCard, setExpandedCard]     = useState(null);
   const [checkedItems, setCheckedItems]     = useState(() => {
     try { return JSON.parse(localStorage.getItem('kds_checks') || '{}'); }
     catch { return {}; }
   });
+  const [teamMembers, setTeamMembers]     = useState([]);
+  const [opsStats, setOpsStats]           = useState({ avgWait: 0, longestWait: 0, itemsPrep: 0 });
+  const surgeNotifiedRef = useRef({});
   const prevReceivedCount = useRef(0);
+  const teamFetchedRef = useRef(false);
 
   // Tick every second for timers
   useEffect(() => {
@@ -223,6 +233,22 @@ const KanbanBoard = () => {
     } catch {}
   }, [soundEnabled]);
 
+  // Ready: bright high ding (C6)
+  const playReadyChime = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(1046.50, now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.3, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc.start(now); osc.stop(now + 0.5);
+    } catch {}
+  }, [soundEnabled]);
+
   // ── Fetch orders ────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
     if (!restaurantId) return;
@@ -241,11 +267,55 @@ const KanbanBoard = () => {
     }
   }, [restaurantId, playChime]);
 
+  const fetchTeam = useCallback(async () => {
+    try {
+      const data = await teamApi.getAll(restaurantId);
+      setTeamMembers(data.filter(m => m.status === 'active'));
+    } catch (err) { console.error('Team fetch error:', err); }
+  }, [restaurantId]);
+
   useEffect(() => {
     fetchOrders();
+    if (!teamFetchedRef.current) {
+      fetchTeam();
+      teamFetchedRef.current = true;
+    }
     const interval = setInterval(fetchOrders, 10000);
     return () => clearInterval(interval);
-  }, [fetchOrders]);
+  }, [fetchOrders, fetchTeam]);
+
+  // ─── Ops Stats Calculation ──────────────────────────────────
+  useEffect(() => {
+    const preparing = ordersByStatus.preparing || [];
+    const received = ordersByStatus.received || [];
+    const allActive = [...received, ...preparing, ...(ordersByStatus.ready || [])];
+    
+    if (allActive.length === 0) {
+      setOpsStats({ avgWait: 0, longestWait: 0, itemsPrep: 0 });
+      return;
+    }
+
+    const now = Date.now();
+    let totalWaitMs = 0;
+    let maxWaitMs = 0;
+    let itemsCount = 0;
+
+    allActive.forEach(o => {
+      const wait = now - parseUTC(o.created_at).getTime();
+      totalWaitMs += wait;
+      if (wait > maxWaitMs) maxWaitMs = wait;
+    });
+
+    preparing.forEach(o => {
+      itemsCount += (o.items || []).reduce((sum, i) => sum + (i.qty || i.quantity || 1), 0);
+    });
+
+    setOpsStats({
+      avgWait: Math.round(totalWaitMs / allActive.length / 60000),
+      longestWait: Math.round(maxWaitMs / 60000),
+      itemsPrep: itemsCount
+    });
+  }, [ordersByStatus, currentTime]);
 
   // ── Surge detection ─────────────────────────────────────────
   useEffect(() => {
@@ -266,6 +336,7 @@ const KanbanBoard = () => {
   const handleStatusUpdate = async (order, newStatus) => {
     try {
       if (newStatus === 'preparing') playAcceptChime();
+      if (newStatus === 'ready')     playReadyChime();
       setOrdersByStatus(prev => {
         const u = { ...prev };
         u[order.status] = (u[order.status] || []).filter(o => o.id !== order.id);
@@ -329,7 +400,12 @@ const KanbanBoard = () => {
   };
   const matchesPlatform = (order) =>
     platformFilter === 'All' || (order.platform || '').toLowerCase() === platformFilter.toLowerCase();
-  const filterOrders = (orders) => orders.filter(o => matchesSearch(o) && matchesPlatform(o));
+  const matchesStation = (order) => {
+    if (stationFilter === 'All') return true;
+    // Check if any item in the order matches the station
+    return (order.items || []).some(i => (i.station || '').toLowerCase() === stationFilter.toLowerCase());
+  };
+  const filterOrders = (orders) => orders.filter(o => matchesSearch(o) && matchesPlatform(o) && matchesStation(o));
 
   const activeCount = ['received', 'preparing', 'ready', 'dispatched']
     .reduce((sum, k) => sum + (ordersByStatus[k]?.length || 0), 0);
@@ -397,6 +473,11 @@ const KanbanBoard = () => {
             {priority === 'surge'    && <span className="kds-badge priority-badge surge">⚡ SURGE</span>}
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {order.assigned_to && (
+              <span className="kds-chef-badge">
+                <FiUser size={9} /> {order.assigned_to.split(' ')[0]}
+              </span>
+            )}
             <span className={`kds-source-tag ${platformCls}`}>{platformLabel}</span>
             <button
               className="kds-expand-btn"
@@ -476,8 +557,9 @@ const KanbanBoard = () => {
         </div>
 
         {order.notes && (
-          <div className="kds-notes">
-            <FiAlertCircle size={12} /> {order.notes}
+          <div className="kds-notes-prominent">
+            <div className="kds-notes-label"><FiAlertCircle size={10} /> SPECIAL INSTRUCTIONS</div>
+            <div className="kds-notes-content">{order.notes}</div>
           </div>
         )}
 
@@ -516,18 +598,27 @@ const KanbanBoard = () => {
             {/* Assign chef row (received / preparing) */}
             {(order.status === 'received' || order.status === 'preparing') && (
               <div className="kds-control-row">
-                <FiUser size={12} style={{ color: '#94a3b8', flexShrink: 0 }} />
-                <input
-                  className="kds-assign-input"
-                  placeholder="Assign to chef..."
-                  defaultValue={order.assigned_to || ''}
-                  onBlur={(e) => {
-                    const val = e.target.value.trim();
-                    if (val !== (order.assigned_to || '')) {
-                      ordersApi.updateStatus(order.id, order.status, val);
-                    }
-                  }}
-                />
+                <div className="kds-assign-wrapper">
+                  <FiUser size={12} className="kds-assign-icon" />
+                  <select
+                    className="kds-assign-select"
+                    value={order.assigned_to || ''}
+                    onChange={async (e) => {
+                      const val = e.target.value;
+                      setOrdersByStatus(prev => {
+                        const u = { ...prev };
+                        u[order.status] = u[order.status].map(o => o.id === order.id ? { ...o, assigned_to: val } : o);
+                        return u;
+                      });
+                      await ordersApi.updateStatus(order.id, order.status, val);
+                    }}
+                  >
+                    <option value="">Assign to Chef...</option>
+                    {teamMembers.map(m => (
+                      <option key={m.id} value={m.name}>{m.name} ({m.role})</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
 
@@ -631,12 +722,42 @@ const KanbanBoard = () => {
         </div>
       </div>
 
+      {/* ── Live Ops Stats Bar ── */}
+      <div className="kds-ops-bar">
+        <div className="kds-ops-item">
+          <span className="label">ACTIVE ORDERS</span>
+          <span className="value">{activeCount}</span>
+        </div>
+        <div className="kds-ops-divider" />
+        <div className="kds-ops-item">
+          <span className="label">AVG WAIT TIME</span>
+          <span className="value">{opsStats.avgWait}m</span>
+        </div>
+        <div className="kds-ops-divider" />
+        <div className="kds-ops-item">
+          <span className="label">LONGEST WAIT</span>
+          <span className="value" style={{ color: opsStats.longestWait > 20 ? '#ef4444' : 'inherit' }}>
+            {opsStats.longestWait}m
+          </span>
+        </div>
+        <div className="kds-ops-divider" />
+        <div className="kds-ops-item">
+          <span className="label">ITEMS IN PREP</span>
+          <span className="value">{opsStats.itemsPrep}</span>
+        </div>
+        <div className="kds-ops-live">
+          <div className="pulse-dot" /> LIVE OPS
+        </div>
+      </div>
+
       {/* ── Search + Filter Bar ── */}
       <KanbanSearchBar
         value={searchQuery}
         onChange={setSearchQuery}
         platformFilter={platformFilter}
         onPlatformChange={setPlatformFilter}
+        stationFilter={stationFilter}
+        onStationChange={setStationFilter}
         orderCount={filteredActiveCount}
       />
 

@@ -59,11 +59,14 @@ const Analytics = () => {
   const maxHourly  = Math.max(...hourlyData.map(d => d.count || 0), 1);
   const totalPlatformOrders = platformData.reduce((sum, p) => sum + (p.count || 0), 0);
 
-  // Peak ordering window label
-  const peakHour = perf.peak_hour || null;
+  const peakHour = perf.peak_hour ?? null;
   const peakLabel = peakHour
-    ? `${peakHour} – ${String(parseInt(peakHour) + 1).padStart(2, '0')}:00`
-    : '—';
+    ? (() => {
+        const h = parseInt(peakHour);
+        const fmt12 = (n) => { const ampm = n >= 12 ? 'PM' : 'AM'; const h12 = n % 12 || 12; return `${h12}:00 ${ampm}`; };
+        return `${fmt12(h)} – ${fmt12(h + 1)}`;
+      })()
+    : null;
 
   return (
     <div className="analytics-container">
@@ -141,8 +144,11 @@ const Analytics = () => {
 
         <div className="metric-card" style={{ borderLeft: '3px solid #8b5cf6' }}>
           <div className="metric-header"><span className="metric-label">Peak Hour</span><FiZap className="trend-icon" style={{ color: '#8b5cf6' }} /></div>
-          <div className="metric-value" style={{ fontSize: '1.5rem' }}>{peakLabel}</div>
-          <div className="metric-sub">Busiest ordering window</div>
+          {peakLabel
+            ? <div className="metric-value" style={{ fontSize: '1.4rem' }}>{peakLabel}</div>
+            : <div className="metric-value" style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 500 }}>No data yet</div>
+          }
+          <div className="metric-sub">{peakLabel ? 'Busiest ordering window' : 'Place some orders to see peak'}</div>
         </div>
       </div>
 
@@ -151,7 +157,7 @@ const Analytics = () => {
         <div className="chart-card">
           <div className="chart-header">
             <h3>Orders by Hour</h3>
-            <span className="chart-subtitle">Peak hour: <strong>{peakLabel}</strong></span>
+            <span className="chart-subtitle">Peak hour: <strong>{peakLabel ?? '—'}</strong></span>
           </div>
           <div className="hourly-chart">
             {hourlyData.length === 0 ? (
@@ -245,7 +251,7 @@ const Analytics = () => {
           </div>
 
           {/* Insight callout */}
-          {perf.peak_hour && (
+          {peakLabel && (
             <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(0,173,181,0.05)', borderRadius: 10, border: '1px solid rgba(0,173,181,0.12)', fontSize: '12px', color: '#64748b' }}>
               <strong style={{ color: 'var(--cyan)' }}>💡 Insight</strong><br />
               Your kitchen is busiest around <strong>{peakLabel}</strong>. Consider scheduling extra staff during this window.

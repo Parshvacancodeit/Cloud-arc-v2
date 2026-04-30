@@ -97,6 +97,16 @@ export const menuApi = {
     api.delete(`/api/menu/item/${itemId}`),
   toggleAvailability: (itemId, isAvailable) =>
     api.patch(`/api/menu/item/${itemId}/availability`, { is_available: isAvailable }),
+  // Upload image — multipart/form-data (no JSON header)
+  uploadImage: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return fetch(`${BASE_URL}/api/upload/image`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` },
+      body: form,
+    }).then(handleResponse);
+  },
 };
 
 // ─── Team ────────────────────────────────────────────────────

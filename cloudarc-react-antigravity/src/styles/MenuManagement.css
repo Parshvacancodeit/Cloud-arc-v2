@@ -290,6 +290,28 @@
   max-width: 800px;
 }
 
+/* Ensure modal body is scrollable when content is tall — handled by global.css */
+
+/* Image Upload Zone */
+.image-upload-zone {
+  border: 2px dashed rgba(0,173,181,0.35);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 110px;
+  background: rgba(0,173,181,0.03);
+  text-align: center;
+}
+
+.image-upload-zone:hover {
+  border-color: #00ADB5;
+  background: rgba(0,173,181,0.07);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
