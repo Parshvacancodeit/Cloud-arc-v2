@@ -9,17 +9,17 @@ import { ordersApi, teamApi } from '../../services/api';
 import '../../styles/KanbanBoard.css';
 
 const COLUMNS = [
-  { key: 'received',    label: 'New Orders', color: '#00ADB5' },
-  { key: 'preparing',  label: 'Preparing',   color: '#3b82f6' },
-  { key: 'ready',      label: 'Ready',       color: '#10B981' },
-  { key: 'dispatched', label: 'Dispatched',  color: '#8b5cf6' },
+  { key: 'received', label: 'New Orders', color: '#00ADB5' },
+  { key: 'preparing', label: 'Preparing', color: '#3b82f6' },
+  { key: 'ready', label: 'Ready', color: '#10B981' },
+  { key: 'dispatched', label: 'Dispatched', color: '#8b5cf6' },
 ];
 
 const NEXT_ACTION = {
-  received:   { label: 'Accept & Prepare', next: 'preparing',  cls: 'accept' },
-  preparing:  { label: 'Mark Ready',       next: 'ready',      cls: 'ready' },
-  ready:      { label: 'Dispatch',         next: 'dispatched', cls: 'dispatch' },
-  dispatched: { label: 'Mark Delivered',   next: 'completed',  cls: 'complete' },
+  received: { label: 'Accept & Prepare', next: 'preparing', cls: 'accept' },
+  preparing: { label: 'Mark Ready', next: 'ready', cls: 'ready' },
+  ready: { label: 'Dispatch', next: 'dispatched', cls: 'dispatch' },
+  dispatched: { label: 'Mark Delivered', next: 'completed', cls: 'complete' },
 };
 
 // ─── UTC-safe date parser ──────────────────────────────────────
@@ -125,22 +125,22 @@ const KanbanSearchBar = ({ value, onChange, platformFilter, onPlatformChange, st
 // ─── Main Component ──────────────────────────────────────────
 const KanbanBoard = () => {
   const [ordersByStatus, setOrdersByStatus] = useState({});
-  const [loading, setLoading]               = useState(true);
-  const [currentTime, setCurrentTime]       = useState(Date.now());
-  const [soundEnabled, setSoundEnabled]     = useState(true);
-  const [showCompleted, setShowCompleted]   = useState(false);
-  const [searchQuery, setSearchQuery]       = useState('');
+  const [loading, setLoading] = useState(true);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState('All');
-  const [stationFilter, setStationFilter]   = useState('All');
+  const [stationFilter, setStationFilter] = useState('All');
   const [notifiedOrders, setNotifiedOrders] = useState({});
-  const [surgeToast, setSurgeToast]         = useState(null);
-  const [expandedCard, setExpandedCard]     = useState(null);
-  const [checkedItems, setCheckedItems]     = useState(() => {
+  const [surgeToast, setSurgeToast] = useState(null);
+  const [expandedCard, setExpandedCard] = useState(null);
+  const [checkedItems, setCheckedItems] = useState(() => {
     try { return JSON.parse(localStorage.getItem('kds_checks') || '{}'); }
     catch { return {}; }
   });
-  const [teamMembers, setTeamMembers]     = useState([]);
-  const [opsStats, setOpsStats]           = useState({ avgWait: 0, longestWait: 0, itemsPrep: 0 });
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [opsStats, setOpsStats] = useState({ avgWait: 0, longestWait: 0, itemsPrep: 0 });
   const surgeNotifiedRef = useRef({});
   const prevReceivedCount = useRef(0);
   const teamFetchedRef = useRef(false);
@@ -190,7 +190,7 @@ const KanbanBoard = () => {
         osc.start(now + i * 0.15);
         osc.stop(now + i * 0.15 + 0.35);
       });
-    } catch {}
+    } catch { }
   }, [soundEnabled]);
 
   // Accept: rising 3-note melody (C4 → E4 → G4)
@@ -210,7 +210,7 @@ const KanbanBoard = () => {
         osc.start(now + i * 0.1);
         osc.stop(now + i * 0.1 + 0.25);
       });
-    } catch {}
+    } catch { }
   }, [soundEnabled]);
 
   // Surge: three urgent pulses (low E)
@@ -230,7 +230,7 @@ const KanbanBoard = () => {
         osc.start(now + offset);
         osc.stop(now + offset + 0.18);
       });
-    } catch {}
+    } catch { }
   }, [soundEnabled]);
 
   // Ready: bright high ding (C6)
@@ -246,7 +246,7 @@ const KanbanBoard = () => {
       gain.gain.linearRampToValueAtTime(0.3, now + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
       osc.start(now); osc.stop(now + 0.5);
-    } catch {}
+    } catch { }
   }, [soundEnabled]);
 
   // ── Fetch orders ────────────────────────────────────────────
@@ -289,7 +289,7 @@ const KanbanBoard = () => {
     const preparing = ordersByStatus.preparing || [];
     const received = ordersByStatus.received || [];
     const allActive = [...received, ...preparing, ...(ordersByStatus.ready || [])];
-    
+
     if (allActive.length === 0) {
       setOpsStats({ avgWait: 0, longestWait: 0, itemsPrep: 0 });
       return;
@@ -336,7 +336,7 @@ const KanbanBoard = () => {
   const handleStatusUpdate = async (order, newStatus) => {
     try {
       if (newStatus === 'preparing') playAcceptChime();
-      if (newStatus === 'ready')     playReadyChime();
+      if (newStatus === 'ready') playReadyChime();
       setOrdersByStatus(prev => {
         const u = { ...prev };
         u[order.status] = (u[order.status] || []).filter(o => o.id !== order.id);
@@ -373,9 +373,9 @@ const KanbanBoard = () => {
     const ms = currentTime - parseUTC(createdAtStr).getTime();
     if (ms < 0) return { display: 'now', level: 'normal' };
     const secs = Math.floor(ms / 1000);
-    const hrs  = Math.floor(secs / 3600);
+    const hrs = Math.floor(secs / 3600);
     const mins = Math.floor((secs % 3600) / 60);
-    const s    = secs % 60;
+    const s = secs % 60;
     let display;
     if (hrs > 0) display = `${hrs}h ${mins}m`;
     else if (mins > 0) display = `${mins}m ${s}s`;
@@ -420,7 +420,7 @@ const KanbanBoard = () => {
     const target = getOrderPrepTarget(order);
     const elapsedMins = (currentTime - parseUTC(order.accepted_at).getTime()) / 60000;
     if (elapsedMins >= target * 1.5) return 'critical';
-    if (elapsedMins >= target)       return 'surge';
+    if (elapsedMins >= target) return 'surge';
     if (elapsedMins >= target * 0.75) return 'warn';
     return null;
   };
@@ -436,13 +436,13 @@ const KanbanBoard = () => {
   // ── Card render ─────────────────────────────────────────────
   const renderCard = (order) => {
     const { level } = formatElapsed(order.created_at);
-    const items     = order.items || [];
-    const action    = NEXT_ACTION[order.status];
-    const priority  = getOrderPriority(order);
+    const items = order.items || [];
+    const action = NEXT_ACTION[order.status];
+    const priority = getOrderPriority(order);
     const isDelayed = priority === 'surge' || priority === 'critical';
     const hasNotified = notifiedOrders[order.id] || (order.customer_message?.includes('Surge'));
     const isExpanded = expandedCard === order.id;
-    const checkPct  = getCheckProgress(order);
+    const checkPct = getCheckProgress(order);
 
     const platformMap = {
       swiggy: { label: 'Swiggy', cls: 'swiggy' },
@@ -470,7 +470,7 @@ const KanbanBoard = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="kds-order-id">#{order.order_number || order.id}</span>
             {priority === 'critical' && <span className="kds-badge priority-badge critical">🔥 CRITICAL</span>}
-            {priority === 'surge'    && <span className="kds-badge priority-badge surge">⚡ SURGE</span>}
+            {priority === 'surge' && <span className="kds-badge priority-badge surge">⚡ SURGE</span>}
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             {order.assigned_to && (
