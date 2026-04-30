@@ -252,29 +252,69 @@
 
 .security-options {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
 }
 
 .security-card {
-  padding: 2rem;
+  padding: 2.5rem;
   background: #f8fafc;
-  border: 1px solid rgba(0,173,181,0.1);
-  border-radius: 16px;
-  text-align: center;
-}
-
-.security-card .status-indicator {
-  display: inline-block;
-  padding: 4px 10px;
+  border: 1px solid rgba(0, 173, 181, 0.1);
   border-radius: 20px;
-  font-size: 11px;
-  font-weight: 700;
-  margin-bottom: 12px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
 }
 
-.status-indicator.active { background: #dcfce7; color: #15803d; }
-.status-indicator.inactive { background: #fee2e2; color: #b91c1c; }
+.security-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  border-color: var(--cyan);
+}
+
+.security-icon {
+  font-size: 3rem;
+  color: var(--cyan);
+  background: rgba(0, 173, 181, 0.08);
+  padding: 1rem;
+  border-radius: 50%;
+  margin-bottom: 0.5rem;
+}
+
+.security-card h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-dark);
+}
+
+.security-card p {
+  font-size: 0.9rem;
+  color: var(--text-gray);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+.btn-update-pass {
+  background: linear-gradient(135deg, #FF5722, #F44336);
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(255, 87, 34, 0.3);
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.btn-update-pass:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 87, 34, 0.4);
+  opacity: 0.95;
+}
 
 /* Existing components sync */
 .form-grid {

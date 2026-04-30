@@ -30,7 +30,7 @@ def get_restaurants_by_pincode():
     rows = query_db(
         '''SELECT r.*, 
            (SELECT image_url FROM menu_items WHERE restaurant_id = r.id AND image_url IS NOT NULL AND image_url != '' LIMIT 1) as preview_image
-           FROM restaurants r WHERE r.pincode=? AND r.is_active=1
+           FROM restaurants r WHERE r.pincode=?
            ORDER BY r.name ASC''',
         [pincode]
     )
@@ -41,7 +41,7 @@ def get_restaurants_by_pincode():
 def get_restaurant(restaurant_id):
     """Public endpoint: single restaurant info."""
     row = query_db(
-        'SELECT * FROM restaurants WHERE id=? AND is_active=1', [restaurant_id], one=True
+        'SELECT * FROM restaurants WHERE id=?', [restaurant_id], one=True
     )
     if not row:
         return jsonify({'message': 'Restaurant not found'}), 404

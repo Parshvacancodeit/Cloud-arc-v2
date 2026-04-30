@@ -56,12 +56,12 @@ def get_analytics(restaurant_id):
 
     # ── Revenue Chart (daily buckets) ──────────────────────────────
     revenue_rows = query_db(
-        '''SELECT DATE(created_at) as date,
+        '''SELECT DATE(created_at, '+5 hours', '30 minutes') as date,
                   COALESCE(SUM(total_amount), 0) as revenue,
                   COUNT(*) as orders
            FROM orders
            WHERE restaurant_id=? AND created_at BETWEEN ? AND ?
-           GROUP BY DATE(created_at)
+           GROUP BY date
            ORDER BY date ASC''',
         [restaurant_id, start, now]
     )
@@ -110,7 +110,7 @@ def get_analytics(restaurant_id):
 
     # ── Orders by Hour ─────────────────────────────────────────────
     hour_rows = query_db(
-        '''SELECT strftime('%H:00', created_at) as hour,
+        '''SELECT strftime('%H:00', created_at, '+5 hours', '30 minutes') as hour,
                   COUNT(*) as count
            FROM orders
            WHERE restaurant_id=? AND created_at BETWEEN ? AND ?

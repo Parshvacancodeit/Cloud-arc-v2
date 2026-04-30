@@ -361,7 +361,7 @@ const Settings = () => {
                   <FiLock className="security-icon" />
                   <h4>Change Password</h4>
                   <p>Regularly update your password to keep your kitchen data safe.</p>
-                  <button className="btn-primary" style={{ marginTop: 'auto', background: '#FF5722', boxShadow: '0 4px 12px rgba(255,87,34,0.3)' }} onClick={() => setShowPassModal(true)}>Update Password</button>
+                  <button className="btn-update-pass" onClick={() => setShowPassModal(true)}>Update Password</button>
                 </div>
               </div>
             </div>
@@ -371,24 +371,26 @@ const Settings = () => {
 
       {/* Modals */}
       {showPassModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
+        <div className="modal-overlay" onClick={() => setShowPassModal(false)}>
+          <form className="modal-content" onClick={e => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); handlePassChange(); }}>
             <div className="modal-header">
               <h3>Update Password</h3>
-              <button className="icon-btn" onClick={() => setShowPassModal(false)}><FiX /></button>
+              <button type="button" className="close-btn" onClick={() => setShowPassModal(false)}><FiX /></button>
             </div>
-            <div className="form-group" style={{ marginBottom: '1rem' }}>
-              <label>Current Password</label>
-              <input type="password" value={oldPass} onChange={e => setOldPass(e.target.value)} />
+            <div className="modal-body">
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label>Current Password</label>
+                <input type="password" value={oldPass} onChange={e => setOldPass(e.target.value)} placeholder="••••••••" required />
+              </div>
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label>New Password</label>
+                <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} placeholder="••••••••" required />
+              </div>
+              <button type="submit" className="btn-primary" style={{ width: '100%', height: '48px', fontSize: '16px' }} disabled={passSaving}>
+                {passSaving ? 'Updating...' : 'Change Password'}
+              </button>
             </div>
-            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label>New Password</label>
-              <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} />
-            </div>
-            <button className="btn-primary full-width" style={{ width: '100%' }} onClick={handlePassChange} disabled={passSaving}>
-              {passSaving ? 'Updating...' : 'Change Password'}
-            </button>
-          </div>
+          </form>
         </div>
       )}
     </div>

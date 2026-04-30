@@ -293,94 +293,92 @@ const MenuManagement = () => {
 
       {showAddModal && (
         <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+          <form className="modal-content large" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
             <div className="modal-header">
               <h2>{editingItem ? 'Edit Menu Item' : 'Add New Item'}</h2>
-              <button className="close-btn" onClick={resetForm}><FiX /></button>
+              <button type="button" className="close-btn" onClick={resetForm}><FiX /></button>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                {formError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>⚠ {formError}</div>}
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Item Name *</label>
-                    <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Margherita Pizza" />
-                  </div>
-                  <div className="form-group">
-                    <label>Category *</label>
-                    <input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required placeholder="e.g., Pizza, Burgers" />
-                  </div>
-                  <div className="form-group">
-                    <label>Price (₹) *</label>
-                    <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required placeholder="299" min="0" />
-                  </div>
-                  <div className="form-group">
-                    <label>Prep Time (minutes) *</label>
-                    <input type="number" value={formData.prepTime} onChange={(e) => setFormData({ ...formData, prepTime: e.target.value })} required placeholder="15" min="1" />
-                  </div>
-                  <div className="form-group full-width">
-                    <label>Description *</label>
-                    <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows="3" placeholder="Describe your dish..." />
-                  </div>
-                  <div className="form-group full-width">
-                    <label>Item Image</label>
-                    <div
-                      className="image-upload-zone"
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImageFileChange(f); }}
-                    >
-                      {imagePreview ? (
-                        <div style={{ position: 'relative', display: 'inline-block' }}>
-                          <img src={imagePreview} alt="preview" style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
-                          <button
-                            type="button"
-                            style={{ position: 'absolute', top: -8, right: -8, background: '#EF4444', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                            onClick={(e) => { e.stopPropagation(); setImageFile(null); setImagePreview(''); setFormData(f => ({ ...f, imageUrl: '' })); }}
-                          ><FiX size={12} /></button>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#94a3b8' }}>
-                          <FiUploadCloud size={32} style={{ color: '#00ADB5' }} />
-                          <span style={{ fontWeight: 600, fontSize: 14 }}>Click or drag &amp; drop an image</span>
-                          <span style={{ fontSize: 12 }}>PNG, JPG, WEBP — max 5 MB</span>
-                        </div>
-                      )}
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={(e) => handleImageFileChange(e.target.files[0])}
-                    />
-                    {/* Fallback URL input */}
-                    <input
-                      type="url"
-                      value={formData.imageUrl}
-                      onChange={(e) => { setFormData({ ...formData, imageUrl: e.target.value }); setImagePreview(e.target.value); setImageFile(null); }}
-                      placeholder="Or paste an image URL"
-                      style={{ marginTop: 8, padding: '0.6rem 0.9rem', border: '1px solid rgba(0,173,181,0.2)', borderRadius: 8, fontSize: '0.9rem', width: '100%' }}
-                    />
-                  </div>
+            <div className="modal-body">
+              {formError && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>⚠ {formError}</div>}
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Item Name *</label>
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="e.g., Margherita Pizza" />
                 </div>
-                <div className="form-row">
-                  <label className="checkbox-label">
-                    <input type="checkbox" checked={formData.veg} onChange={(e) => setFormData({ ...formData, veg: e.target.checked })} />
-                    <span>Vegetarian</span>
-                  </label>
-                  <label className="checkbox-label">
-                    <input type="checkbox" checked={formData.bestseller} onChange={(e) => setFormData({ ...formData, bestseller: e.target.checked })} />
-                    <span>Mark as Bestseller</span>
-                  </label>
+                <div className="form-group">
+                  <label>Category *</label>
+                  <input type="text" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} required placeholder="e.g., Pizza, Burgers" />
+                </div>
+                <div className="form-group">
+                  <label>Price (₹) *</label>
+                  <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} required placeholder="299" min="0" />
+                </div>
+                <div className="form-group">
+                  <label>Prep Time (minutes) *</label>
+                  <input type="number" value={formData.prepTime} onChange={(e) => setFormData({ ...formData, prepTime: e.target.value })} required placeholder="15" min="1" />
+                </div>
+                <div className="form-group full-width">
+                  <label>Description *</label>
+                  <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} required rows="3" placeholder="Describe your dish..." />
+                </div>
+                <div className="form-group full-width">
+                  <label>Item Image</label>
+                  <div
+                    className="image-upload-zone"
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleImageFileChange(f); }}
+                  >
+                    {imagePreview ? (
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img src={imagePreview} alt="preview" style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 10, display: 'block' }} />
+                        <button
+                          type="button"
+                          style={{ position: 'absolute', top: -8, right: -8, background: '#EF4444', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => { e.stopPropagation(); setImageFile(null); setImagePreview(''); setFormData(f => ({ ...f, imageUrl: '' })); }}
+                        ><FiX size={12} /></button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#94a3b8' }}>
+                        <FiUploadCloud size={32} style={{ color: '#00ADB5' }} />
+                        <span style={{ fontWeight: 600, fontSize: 14 }}>Click or drag &amp; drop an image</span>
+                        <span style={{ fontSize: 12 }}>PNG, JPG, WEBP — max 5 MB</span>
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => handleImageFileChange(e.target.files[0])}
+                  />
+                  {/* Fallback URL input */}
+                  <input
+                    type="url"
+                    value={formData.imageUrl}
+                    onChange={(e) => { setFormData({ ...formData, imageUrl: e.target.value }); setImagePreview(e.target.value); setImageFile(null); }}
+                    placeholder="Or paste an image URL"
+                    style={{ marginTop: 8, padding: '0.6rem 0.9rem', border: '1px solid rgba(0,173,181,0.2)', borderRadius: 8, fontSize: '0.9rem', width: '100%' }}
+                  />
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={saving || uploadingImage}>{saving || uploadingImage ? (uploadingImage ? 'Uploading…' : 'Saving...') : editingItem ? 'Update Item' : 'Add Item'}</button>
+              <div className="form-row">
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={formData.veg} onChange={(e) => setFormData({ ...formData, veg: e.target.checked })} />
+                  <span>Vegetarian</span>
+                </label>
+                <label className="checkbox-label">
+                  <input type="checkbox" checked={formData.bestseller} onChange={(e) => setFormData({ ...formData, bestseller: e.target.checked })} />
+                  <span>Mark as Bestseller</span>
+                </label>
               </div>
-            </form>
-          </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving || uploadingImage}>{saving || uploadingImage ? (uploadingImage ? 'Uploading…' : 'Saving...') : editingItem ? 'Update Item' : 'Add Item'}</button>
+            </div>
+          </form>
         </div>
       )}
     </div>

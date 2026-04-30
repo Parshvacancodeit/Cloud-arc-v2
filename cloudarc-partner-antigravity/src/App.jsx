@@ -673,6 +673,27 @@ const RestaurantListPage = ({ pincode, onNavigate }) => {
       .finally(() => setLoading(false));
   }, [pincode]);
 
+  const isRestaurantOpen = (operatingHours) => {
+    try {
+      if (!operatingHours || Object.keys(operatingHours).length === 0) return true;
+      const now = new Date();
+      const day = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const config = operatingHours[day];
+      if (!config || config.closed) return false;
+      if (!config.open || !config.close) return true;
+      const [nowH, nowM] = [now.getHours(), now.getMinutes()];
+      const openParts = config.open.split(':');
+      const closeParts = config.close.split(':');
+      const [openH, openM] = [parseInt(openParts[0]), parseInt(openParts[1])];
+      const [closeH, closeM] = [parseInt(closeParts[0]), parseInt(closeParts[1])];
+      const nowTotal = nowH * 60 + nowM;
+      const openTotal = openH * 60 + openM;
+      const closeTotal = closeH * 60 + closeM;
+      if (closeTotal < openTotal) return nowTotal >= openTotal || nowTotal < closeTotal;
+      return nowTotal >= openTotal && nowTotal < closeTotal;
+    } catch { return true; }
+  };
+
   const allCuisines = ['All', ...new Set(restaurants.flatMap(r => r.cuisine_types || []))];
   const filtered = filter === 'All' ? restaurants : restaurants.filter(r => (r.cuisine_types || []).includes(filter));
 
@@ -697,32 +718,44 @@ const RestaurantListPage = ({ pincode, onNavigate }) => {
       )}
 
       <div className="restaurant-list">
-        {filtered.map(r => (
-          <div key={r.id} className="restaurant-card" onClick={() => onNavigate('detail', { restaurantId: r.id })}>
-            <div className="r-img">
-              { (r.logo_url || r.preview_image) ? (
-                <img src={r.logo_url || r.preview_image} alt={r.name} onError={(e) => { e.target.src = `https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80`; }} />
-              ) : (
-                <img src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80`} alt={r.name} />
-              )}
+        {filtered.map(r => {
+          const isOpen = r.is_active && isRestaurantOpen(r.operating_hours);
+          return (
+            <div key={r.id} className={`restaurant-card ${!isOpen ? 'closed-restaurant' : ''}`} onClick={() => onNavigate('detail', { restaurantId: r.id })}>
+              <div className="r-img">
+                { (r.logo_url || r.preview_image) ? (
+                  <img 
+                    src={r.logo_url || r.preview_image} 
+                    alt={r.name} 
+                    style={{ filter: !isOpen ? 'grayscale(100%)' : 'none' }}
+                    onError={(e) => { e.target.src = `https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80`; }} 
+                  />
+                ) : (
+                  <img 
+                    src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80`} 
+                    alt={r.name} 
+                    style={{ filter: !isOpen ? 'grayscale(100%)' : 'none' }}
+                  />
+                )}
+              </div>
+              <div className="r-body">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                  <div className="r-name">{r.name}</div>
+                  <span className={`open-badge ${isOpen ? 'open' : 'closed'}`}>{isOpen ? 'Open' : 'Closed'}</span>
+                </div>
+                <div className="r-meta">
+                  <span><FiStar /> {r.rating || '4.0'}</span>
+                  <span><FiClock /> {r.avg_prep_time || 25} min</span>
+                  <span><FiMapPin /> {r.city}</span>
+                </div>
+                <div className="r-tags">
+                  {(r.cuisine_types || []).slice(0, 3).map(c => <span key={c} className="r-tag">{c}</span>)}
+                  {r.avg_prep_time <= 20 && <span className="r-tag orange">⚡ Quick</span>}
+                </div>
+              </div>
             </div>
-            <div className="r-body">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-                <div className="r-name">{r.name}</div>
-                <span className={`open-badge ${r.is_active ? 'open' : 'closed'}`}>{r.is_active ? 'Open' : 'Closed'}</span>
-              </div>
-              <div className="r-meta">
-                <span><FiStar /> {r.rating || '4.0'}</span>
-                <span><FiClock /> {r.avg_prep_time || 25} min</span>
-                <span><FiMapPin /> {r.city}</span>
-              </div>
-              <div className="r-tags">
-                {(r.cuisine_types || []).slice(0, 3).map(c => <span key={c} className="r-tag">{c}</span>)}
-                {r.avg_prep_time <= 20 && <span className="r-tag orange">⚡ Quick</span>}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

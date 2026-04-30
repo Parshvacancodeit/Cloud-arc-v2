@@ -289,61 +289,59 @@ const TeamManagement = () => {
       {/* ── Add / Edit Modal ── */}
       {showAddModal && (
         <div className="modal-overlay" onClick={resetForm}>
-          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+          <form className="modal-content large" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
             <div className="modal-header">
               <h2>{editingMember ? 'Edit Staff Member' : 'Add Staff Member'}</h2>
-              <button className="close-btn" onClick={resetForm}><FiX /></button>
+              <button type="button" className="close-btn" onClick={resetForm}><FiX /></button>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                {formError && (
-                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>
-                    ⚠ {formError}
-                  </div>
-                )}
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Full Name *</label>
-                    <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="Ravi Kumar" />
-                  </div>
-                  <div className="form-group">
-                    <label>Role *</label>
-                    <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} required>
-                      <option value="">Select Role</option>
-                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Email</label>
-                    <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="ravi@kitchen.com" />
-                  </div>
-                  <div className="form-group">
-                    <label>Phone</label>
-                    <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+91 98765 43210" />
-                  </div>
-                  <div className="form-group">
-                    <label>Assigned Station *</label>
-                    <select value={formData.station} onChange={(e) => setFormData({ ...formData, station: e.target.value })} required>
-                      <option value="">Select Station</option>
-                      {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Shift *</label>
-                    <select value={formData.shift} onChange={(e) => setFormData({ ...formData, shift: e.target.value })} required>
-                      {SHIFTS.map(s => (
-                        <option key={s} value={s}>{s} ({SHIFT_META[s]?.sub})</option>
-                      ))}
-                    </select>
-                  </div>
+            <div className="modal-body">
+              {formError && (
+                <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', color: '#DC2626', fontSize: '13px' }}>
+                  ⚠ {formError}
+                </div>
+              )}
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Full Name *</label>
+                  <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required placeholder="Ravi Kumar" />
+                </div>
+                <div className="form-group">
+                  <label>Role *</label>
+                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} required>
+                    <option value="">Select Role</option>
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="ravi@kitchen.com" />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+91 98765 43210" />
+                </div>
+                <div className="form-group">
+                  <label>Assigned Station *</label>
+                  <select value={formData.station} onChange={(e) => setFormData({ ...formData, station: e.target.value })} required>
+                    <option value="">Select Station</option>
+                    {STATIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Shift *</label>
+                  <select value={formData.shift} onChange={(e) => setFormData({ ...formData, shift: e.target.value })} required>
+                    {SHIFTS.map(s => (
+                      <option key={s} value={s}>{s} ({SHIFT_META[s]?.sub})</option>
+                    ))}
+                  </select>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : editingMember ? 'Update Member' : 'Add Member'}</button>
-              </div>
-            </form>
-          </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn-secondary" onClick={resetForm}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : editingMember ? 'Update Member' : 'Add Member'}</button>
+            </div>
+          </form>
         </div>
       )}
     </div>

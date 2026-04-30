@@ -53,10 +53,12 @@ const Analytics = () => {
   const revenueChart = analyticsData?.revenue_chart || [];
   const platformData = analyticsData?.orders_by_platform || [];
   const topItems    = analyticsData?.top_items || [];
-  const hourlyData  = (analyticsData?.orders_by_hour || []).map(d => ({
-    ...d,
-    hourLabel: String(d.hour).split(':')[0] + (parseInt(d.hour) >= 12 ? ' PM' : ' AM')
-  }));
+  const hourlyData  = (analyticsData?.orders_by_hour || []).map(d => {
+    const h = parseInt(d.hour);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return { ...d, hourLabel: `${h12} ${ampm}` };
+  });
   const perf        = analyticsData?.performance || {};
 
   const maxRevenue = Math.max(...revenueChart.map(d => d.revenue || 0), 1);
