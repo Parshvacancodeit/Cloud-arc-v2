@@ -258,8 +258,21 @@ const Settings = () => {
 
               {/* Technical API Mapping Panel */}
               <div className="mapping-panel">
-                <div className="mapping-header">
-                  <FiCode /> <span>CloudArc API Normalization Engine</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div className="mapping-header" style={{ margin: 0 }}>
+                    <FiCode /> <span>CloudArc API Normalization Engine</span>
+                  </div>
+                  <button 
+                    className="btn-primary" 
+                    style={{ padding: '8px 16px', fontSize: '12px' }}
+                    onClick={() => {
+                      setShowSuccess(true);
+                      setTimeout(() => setShowSuccess(false), 3000);
+                      alert("Simulating Zomato Order Sync...\n\n1. Fetching Zomato Webhooks\n2. Normalizing 'order_id' to 'order_number'\n3. Mapping item tags to CloudArc stations\n4. Injecting into Kitchen Display System.");
+                    }}
+                  >
+                    <FiRefreshCw style={{ marginRight: 6 }}/> Simulate Zomato Sync
+                  </button>
                 </div>
                 <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
                   The CloudArc Integrator standardizes payloads from various sources into a unified structure. 
@@ -348,18 +361,7 @@ const Settings = () => {
                   <FiLock className="security-icon" />
                   <h4>Change Password</h4>
                   <p>Regularly update your password to keep your kitchen data safe.</p>
-                  <button className="btn-secondary" onClick={() => setShowPassModal(true)}>Update Password</button>
-                </div>
-                <div className="security-card">
-                  <FiShield className="security-icon" />
-                  <div className={`status-indicator ${settings.isTwoFactorEnabled ? 'active' : 'inactive'}`}>
-                    {settings.isTwoFactorEnabled ? 'Enabled' : 'Disabled'}
-                  </div>
-                  <h4>Two-Factor Auth</h4>
-                  <p>Add an extra layer of security to your login process.</p>
-                  <button className={settings.isTwoFactorEnabled ? 'btn-secondary' : 'btn-primary'} onClick={handleToggle2FA}>
-                    {settings.isTwoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
-                  </button>
+                  <button className="btn-primary" style={{ marginTop: 'auto', background: '#FF5722', boxShadow: '0 4px 12px rgba(255,87,34,0.3)' }} onClick={() => setShowPassModal(true)}>Update Password</button>
                 </div>
               </div>
             </div>

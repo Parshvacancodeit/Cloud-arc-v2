@@ -83,7 +83,7 @@ const RestaurantListPage = ({ pincode, onNavigate }) => {
             <div key={r.id} className={`restaurant-card ${!isOpen ? 'closed-restaurant' : ''}`} onClick={() => onNavigate('detail', { restaurantId: r.id })}>
               <div className="r-img">
                 <img 
-                  src={r.logo_url || fallbackImg} 
+                  src={r.logo_url || r.preview_image || fallbackImg} 
                   alt={r.name} 
                   style={{ filter: !isOpen ? 'grayscale(100%)' : 'none' }}
                   onError={(e) => { e.target.src = fallbackImg; }} 

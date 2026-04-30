@@ -548,6 +548,11 @@ const KanbanBoard = () => {
                 </div>
                 <span className="kds-item-qty">{item.qty || item.quantity}×</span>
                 <span className="kds-item-name">{item.name || item.item_name}</span>
+                {item.station && (
+                  <span className={`kds-station-tag ${(item.station || '').toLowerCase()}`} style={{ marginLeft: 8, fontSize: '9px', fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: 'rgba(0,173,181,0.1)', color: '#00ADB5', textTransform: 'uppercase' }}>
+                    {item.station}
+                  </span>
+                )}
                 {item.prep_time && (
                   <span style={{ fontSize: '10px', color: '#94a3b8', marginLeft: 'auto' }}>{item.prep_time}m</span>
                 )}

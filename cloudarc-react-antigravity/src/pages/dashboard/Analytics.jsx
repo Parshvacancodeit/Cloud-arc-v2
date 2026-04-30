@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { FiTrendingUp, FiTrendingDown, FiRefreshCw, FiAlertCircle, FiPackage, FiXCircle, FiClock, FiZap } from 'react-icons/fi';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { analyticsApi } from '../../services/api';
 import '../../styles/Analytics.css';
 
@@ -52,7 +53,10 @@ const Analytics = () => {
   const revenueChart = analyticsData?.revenue_chart || [];
   const platformData = analyticsData?.orders_by_platform || [];
   const topItems    = analyticsData?.top_items || [];
-  const hourlyData  = analyticsData?.orders_by_hour || [];
+  const hourlyData  = (analyticsData?.orders_by_hour || []).map(d => ({
+    ...d,
+    hourLabel: String(d.hour).split(':')[0] + (parseInt(d.hour) >= 12 ? ' PM' : ' AM')
+  }));
   const perf        = analyticsData?.performance || {};
 
   const maxRevenue = Math.max(...revenueChart.map(d => d.revenue || 0), 1);
@@ -83,6 +87,18 @@ const Analytics = () => {
       })()
     : null;
 
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="chart-tooltip" style={{ background: '#1a1a2e', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(0,173,181,0.2)', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}>
+          <p className="label" style={{ color: '#94a3b8', fontSize: '12px', margin: '0 0 4px' }}>{payload[0].payload.hourLabel}</p>
+          <p className="intro" style={{ color: 'white', fontWeight: 700, margin: 0 }}>{payload[0].value} Orders</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="analytics-container">
       <div className="analytics-header">
@@ -102,7 +118,6 @@ const Analytics = () => {
 
       {/* ── Key Metrics ── */}
       <div className="metrics-grid">
-        {/* Revenue — large card with mini bar chart */}
         <div className="metric-card large">
           <div className="metric-header">
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -141,7 +156,6 @@ const Analytics = () => {
           <div className="metric-sub">Configured target</div>
         </div>
 
-        {/* Extra operational metrics */}
         <div className="metric-card" style={{ borderLeft: '3px solid #ef4444' }}>
           <div className="metric-header"><span className="metric-label">Cancelled Orders</span><FiXCircle className="trend-icon" style={{ color: '#ef4444' }} /></div>
           <div className="metric-value" style={{ color: '#ef4444' }}>{perf.cancelled_count ?? 0}</div>
@@ -177,25 +191,30 @@ const Analytics = () => {
             <h3>Orders by Hour</h3>
             <span className="chart-subtitle">Peak hour: <strong>{peakLabel ?? '—'}</strong></span>
           </div>
-          <div className="hourly-chart">
+          <div style={{ width: '100%', height: 250, marginTop: 20 }}>
             {hourlyData.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#94A3B8', padding: '24px' }}>No hourly data for this period</p>
-            ) : hourlyData.map((item, idx) => (
-              <div key={idx} className="hour-column">
-                <div className="hour-bar"
-                  style={{
-                    height: `${Math.max((item.count / maxHourly) * 100, 5)}%`,
-                    width: '12px',
-                    borderRadius: '4px 4px 0 0',
-                    background: item.count >= maxHourly * 0.8 ? '#FF5722' : item.count >= maxHourly * 0.5 ? '#f59e0b' : '#00ADB5',
-                    boxShadow: '0 -2px 10px rgba(0,173,181,0.2)',
-                    transition: 'height 0.3s ease'
-                  }}
-                  title={`${item.hour}: ${item.count} orders`}
-                />
-                <span className="hour-label">{String(item.hour).split(':')[0]}</span>
-              </div>
-            ))}
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={hourlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                  <XAxis 
+                    dataKey="hour" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 10 }}
+                    tickFormatter={(val) => val.split(':')[0]}
+                  />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={20}>
+                    {hourlyData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.count >= maxHourly * 0.8 ? '#FF5722' : '#00ADB5'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
@@ -272,7 +291,6 @@ const Analytics = () => {
             ))}
           </div>
 
-          {/* Insight callout */}
           {peakLabel && (
             <div style={{ marginTop: 16, padding: '10px 14px', background: 'rgba(0,173,181,0.05)', borderRadius: 10, border: '1px solid rgba(0,173,181,0.12)', fontSize: '12px', color: '#64748b' }}>
               <strong style={{ color: 'var(--cyan)' }}>💡 Insight</strong><br />

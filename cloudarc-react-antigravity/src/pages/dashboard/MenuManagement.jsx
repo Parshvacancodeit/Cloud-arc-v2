@@ -363,17 +363,6 @@ const MenuManagement = () => {
                       style={{ marginTop: 8, padding: '0.6rem 0.9rem', border: '1px solid rgba(0,173,181,0.2)', borderRadius: 8, fontSize: '0.9rem', width: '100%' }}
                     />
                   </div>
-                  <div className="form-group full-width">
-                    <label>Available on Platforms</label>
-                    <div className="platform-checkboxes">
-                      {PLATFORM_OPTIONS.map(p => (
-                        <label key={p} className="checkbox-label">
-                          <input type="checkbox" checked={formData.platforms.includes(p)} onChange={() => handlePlatformToggle(p)} />
-                          <span>{p}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
                 </div>
                 <div className="form-row">
                   <label className="checkbox-label">

@@ -147,40 +147,6 @@ const AppContent = () => {
             )}
           </div>
         </div>
-
-        {/* Side info panel — desktop only */}
-        <div style={{ marginLeft: 48, maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div>
-            <div style={{ fontFamily: 'Space Grotesk', fontSize: 24, fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
-              CloudArc <span style={{ color: 'var(--teal)' }}>Customer</span>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-              Discover cloud kitchens in your area. Browse menus and place orders that go live on the kitchen's POS dashboard instantly.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { icon: <FiSearch />, t: 'Search by Pincode', d: 'Finds all restaurants registered on CloudArc POS in that area' },
-              { icon: <FiCoffee />, t: 'Browse & Order', d: 'Orders appear live on the Kanban board in POS dashboard' },
-              { icon: <FiZap />, t: 'Real-time Sync', d: 'Same Flask API, same database — one unified backend' },
-            ].map(({ icon, t, d }) => (
-              <div key={t} style={{ display: 'flex', gap: 14, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ color: 'var(--teal)', fontSize: 20 }}>{icon}</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3, color: 'var(--text)' }}>{t}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{d}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', padding: '16px', background: 'rgba(0,173,181,0.05)', borderRadius: 14, border: '1px solid rgba(0,173,181,0.15)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <FiInfo size={18} style={{ color: 'var(--teal)', flexShrink: 0 }} />
-            <div>
-              <strong style={{ color: 'var(--teal)', display: 'block', marginBottom: 4 }}>API Configuration</strong>
-              Add your Flask URL to <code>.env</code> as <code>VITE_API_URL</code>
-            </div>
-          </div>
-        </div>
       </div>
     </>
   );

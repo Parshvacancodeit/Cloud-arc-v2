@@ -700,7 +700,11 @@ const RestaurantListPage = ({ pincode, onNavigate }) => {
         {filtered.map(r => (
           <div key={r.id} className="restaurant-card" onClick={() => onNavigate('detail', { restaurantId: r.id })}>
             <div className="r-img">
-              {r.logo_url ? <img src={r.logo_url} alt={r.name} onError={(e) => { e.target.parentNode.innerHTML = '<div style="color: var(--muted); opacity: 0.3"><FiImage size={40}/></div>'; }} /> : <FiImage size={40} style={{ color: 'var(--muted)', opacity: 0.3 }} />}
+              { (r.logo_url || r.preview_image) ? (
+                <img src={r.logo_url || r.preview_image} alt={r.name} onError={(e) => { e.target.src = `https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80`; }} />
+              ) : (
+                <img src={`https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80`} alt={r.name} />
+              )}
             </div>
             <div className="r-body">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
@@ -757,11 +761,11 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
       .finally(() => setLoading(false));
   }, [restaurantId]);
 
-  const heroImages = menuItems.filter(i => i.image).map(i => i.image);
+  const heroImages = [...new Set(menuItems.filter(i => i.image).map(i => i.image))];
 
   useEffect(() => {
     if (heroImages.length <= 1) return;
-    heroTimer.current = setInterval(() => setHeroIdx(p => (p + 1) % heroImages.length), 3000);
+    heroTimer.current = setInterval(() => setHeroIdx(p => (p + 1) % heroImages.length), 4000);
     return () => clearInterval(heroTimer.current);
   }, [heroImages.length]);
 
@@ -796,7 +800,7 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
         ) : restaurant.logo_url ? (
           <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)' }}><FiImage size={60} /></div>
+          <img src={`https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%)' }} />
         {heroImages.length > 1 && (
@@ -1325,40 +1329,6 @@ const AppContent = () => {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Side info — visible on wider screens */}
-        <div style={{ marginLeft: 48, maxWidth: 300, display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div>
-            <div style={{ fontFamily: 'Outfit', fontSize: 24, fontWeight: 700, lineHeight: 1.2, marginBottom: 12 }}>
-              Swiggy <span style={{ color: 'var(--teal)' }}>Clone</span>
-            </div>
-            <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-              Discover cloud kitchens in your area. Browse menus and place orders that go live on the kitchen's POS dashboard instantly.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { icon: <FiSearch />, t: 'Search by Pincode', d: 'Finds all restaurants registered on CloudArc POS in that area' },
-              { icon: <FiCoffee />, t: 'Browse & Order', d: 'Orders appear live on the Kanban board in POS dashboard' },
-              { icon: <FiZap />, t: 'Real-time Sync', d: 'Same Flask API, same database — one unified backend' }
-            ].map(({ icon, t, d }) => (
-              <div key={t} style={{ display: 'flex', gap: 14, padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ color: 'var(--teal)', fontSize: 20 }}>{icon}</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 3, color: 'var(--text)' }}>{t}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{d}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', padding: '16px', background: 'rgba(0,173,181,0.05)', borderRadius: 14, border: '1px solid rgba(0,173,181,0.15)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <FiInfo size={18} style={{ color: 'var(--teal)', flexShrink: 0 }} />
-            <div>
-              <strong style={{ color: 'var(--teal)', display: 'block', marginBottom: 4 }}>API Configuration</strong>
-              Add your Flask URL to <code>.env</code> as <code>VITE_API_URL</code>
-            </div>
           </div>
         </div>
       </div>

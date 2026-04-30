@@ -9,7 +9,7 @@ def _restaurant_to_dict(r):
     d = dict(r)
     d['cuisine_types'] = json.loads(d.get('cuisine_types') or '[]')
     d['operating_hours'] = json.loads(d.get('operating_hours') or '{}')
-    for field in ['zomato_connected', 'swiggy_connected', 'uber_eats_connected', 'is_active']:
+    for field in ['zomato_connected', 'swiggy_connected', 'uber_eats_connected']:
         d.pop(field, None)
     # Remove sensitive fields
     for field in ['user_id', 'gst_number', 'fssai_license',
@@ -26,9 +26,12 @@ def get_restaurants_by_pincode():
     if not pincode:
         return jsonify({'message': 'pincode query param required'}), 400
 
+    # Join with menu_items to get a preview image if the restaurant doesn't have a logo
     rows = query_db(
-        '''SELECT * FROM restaurants WHERE pincode=? AND is_active=1
-           ORDER BY name ASC''',
+        '''SELECT r.*, 
+           (SELECT image_url FROM menu_items WHERE restaurant_id = r.id AND image_url IS NOT NULL AND image_url != '' LIMIT 1) as preview_image
+           FROM restaurants r WHERE r.pincode=? AND r.is_active=1
+           ORDER BY r.name ASC''',
         [pincode]
     )
     return jsonify([_restaurant_to_dict(r) for r in rows])

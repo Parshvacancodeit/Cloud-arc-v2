@@ -56,6 +56,19 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
 
   const isOpen = isRestaurantOpen(restaurant);
 
+  const heroImages = [...new Set(menuItems.filter(i => i.image).map(i => i.image))];
+
+  useEffect(() => {
+    if (heroImages.length <= 1) return;
+    heroTimerRef.current = setInterval(() => setHeroIdx(p => (p + 1) % heroImages.length), 4000);
+    return () => clearInterval(heroTimerRef.current);
+  }, [heroImages.length]);
+
+  const getQty = (itemId) => {
+    const found = cart.items.find(i => i.id === itemId);
+    return found ? found.quantity : 0;
+  };
+
   if (loading) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="spinner"/><span>Loading menu...</span></div></div>;
   if (error || !restaurant) return (
     <div style={{ paddingTop: 48 }}>
