@@ -660,7 +660,13 @@ const KanbanBoard = () => {
           {action && (
             <button
               className={`kds-action-btn status-${order.status} action-${action.cls}`}
+              disabled={order.status === 'preparing' && checkPct < 100}
               onClick={() => handleStatusUpdate(order, action.next)}
+              title={order.status === 'preparing' && checkPct < 100 ? 'Check all items first' : ''}
+              style={{
+                opacity: (order.status === 'preparing' && checkPct < 100) ? 0.5 : 1,
+                cursor: (order.status === 'preparing' && checkPct < 100) ? 'not-allowed' : 'pointer'
+              }}
             >
               {action.label} <FiChevronRight size={13} />
             </button>

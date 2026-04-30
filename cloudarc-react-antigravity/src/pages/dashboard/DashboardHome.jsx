@@ -27,7 +27,20 @@ const DashboardHome = () => {
         dashboardApi.getAlerts(restaurantId),
       ]);
       setStats(statsData);
-      setPlatformStats(platformData);
+      
+      // Group platforms into "Customer App" and "Partner App"
+      const grouped = platformData.reduce((acc, curr) => {
+        const name = (curr.platform || '').toLowerCase();
+        const group = (name.includes('partner') || name.includes('zomato') || name.includes('swiggy') || name.includes('uber'))
+          ? 'Partner App'
+          : 'Customer App';
+        if (!acc[group]) acc[group] = { platform: group, count: 0, revenue: 0 };
+        acc[group].count += curr.count;
+        acc[group].revenue += curr.revenue;
+        return acc;
+      }, {});
+      setPlatformStats(Object.values(grouped).sort((a, b) => b.count - a.count));
+
       setRecentOrders(ordersData);
       setAlerts(alertsData);
     } catch (err) {
@@ -47,10 +60,13 @@ const DashboardHome = () => {
 
   const formatTime = (isoString) => {
     if (!isoString) return '';
-    const diff = Math.floor((Date.now() - new Date(isoString)) / 60000);
+    // Parse as UTC by appending Z if missing, then compare with current time
+    const date = isoString.includes('Z') ? new Date(isoString) : new Date(isoString.replace(' ', 'T') + 'Z');
+    const diff = Math.floor((Date.now() - date.getTime()) / 60000);
     if (diff < 1) return 'just now';
     if (diff < 60) return `${diff} min ago`;
-    return `${Math.floor(diff / 60)}h ago`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}h ago`;
+    return date.toLocaleDateString();
   };
 
   const quickActions = [
@@ -148,11 +164,7 @@ const DashboardHome = () => {
           <div className="stat-info">
             <span className="stat-label">Revenue Today</span>
             <span className="stat-value">₹{stats?.today_revenue?.toLocaleString() ?? '—'}</span>
-            {stats?.revenue_trend_percent != null && (
-              <span className="stat-change positive">
-                <FiTrendingUp /> +{stats.revenue_trend_percent}% from avg
-              </span>
-            )}
+            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px', fontWeight: 500 }}>Total earnings across all channels</div>
           </div>
         </div>
       </div>

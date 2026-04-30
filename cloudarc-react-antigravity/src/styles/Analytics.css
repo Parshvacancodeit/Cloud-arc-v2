@@ -165,9 +165,24 @@
 .hourly-chart {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
-  height: 200px;
-  gap: 0.5rem;
+  justify-content: flex-start;
+  height: 220px;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 20px 10px 10px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  scrollbar-width: thin;
+}
+
+.hourly-chart::-webkit-scrollbar {
+  height: 6px;
+}
+
+.hourly-chart::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
 }
 
 .hour-column {
@@ -176,6 +191,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  min-width: 25px;
 }
 
 .hour-bar {

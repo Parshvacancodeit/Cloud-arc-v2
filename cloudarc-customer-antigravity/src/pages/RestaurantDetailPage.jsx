@@ -33,22 +33,28 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
       .finally(() => setLoading(false));
   }, [restaurantId]);
 
-  const getQty = (itemId) => {
-    const found = cart.items.find(i => i.id === itemId);
-    return found ? found.quantity : 0;
+  const isRestaurantOpen = (r) => {
+    if (!r) return false;
+    if (!r.is_active) return false;
+    const operatingHours = r.operating_hours;
+    try {
+      if (!operatingHours || Object.keys(operatingHours).length === 0) return true;
+      const now = new Date();
+      const day = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const config = operatingHours[day];
+      if (!config || config.closed) return false;
+      const [nowH, nowM] = [now.getHours(), now.getMinutes()];
+      const openParts = (config.open || '09:00').split(':');
+      const closeParts = (config.close || '22:00').split(':');
+      const nowTotal = nowH * 60 + nowM;
+      const openTotal = parseInt(openParts[0]) * 60 + parseInt(openParts[1]);
+      const closeTotal = parseInt(closeParts[0]) * 60 + parseInt(closeParts[1]);
+      if (closeTotal < openTotal) return nowTotal >= openTotal || nowTotal < closeTotal;
+      return nowTotal >= openTotal && nowTotal < closeTotal;
+    } catch (err) { return true; }
   };
 
-  // Build list of hero images from menu items that have images
-  const heroImages = menuItems.filter(i => i.image).map(i => i.image);
-
-  // Auto-rotate hero images every 3 seconds
-  useEffect(() => {
-    if (heroImages.length <= 1) return;
-    heroTimerRef.current = setInterval(() => {
-      setHeroIdx(prev => (prev + 1) % heroImages.length);
-    }, 3000);
-    return () => clearInterval(heroTimerRef.current);
-  }, [heroImages.length]);
+  const isOpen = isRestaurantOpen(restaurant);
 
   if (loading) return <div style={{ paddingTop: 48 }}><div className="center-state"><div className="spinner"/><span>Loading menu...</span></div></div>;
   if (error || !restaurant) return (
@@ -72,6 +78,11 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
 
   return (
     <div className="menu-page-body">
+      {!isOpen && (
+        <div style={{ background: '#EF4444', color: 'white', padding: '10px 20px', textAlign: 'center', fontSize: 13, fontWeight: 700, position: 'sticky', top: 0, zIndex: 100 }}>
+          Kitchen is currently closed. We are not accepting orders right now.
+        </div>
+      )}
       {/* ── Hero Banner with rotating menu images ── */}
       <div style={{ position: 'relative', width: '100%', height: 180, overflow: 'hidden', background: 'linear-gradient(135deg, #0A0E1A, #1A2235)' }}>
         {heroImages.length > 0 ? (
@@ -85,16 +96,13 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
                 objectFit: 'cover',
                 opacity: idx === heroIdx ? 1 : 0,
                 transition: 'opacity 0.8s ease-in-out',
+                filter: !isOpen ? 'grayscale(80%)' : 'none'
               }}
               onError={(e) => { e.target.style.display = 'none'; }}
             />
           ))
-        ) : restaurant.logo_url ? (
-          <img src={restaurant.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
         ) : (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.15)' }}>
-            <FiImage size={60} />
-          </div>
+          <img src={restaurant.logo_url || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80"} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isOpen ? 'grayscale(80%)' : 'none' }} />
         )}
         {/* Dark overlay gradient */}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.55) 100%)' }} />
@@ -116,7 +124,7 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
       </div>
 
       <div className="detail-header">
-        <div className="detail-name">{restaurant.name}</div>
+        <div className="detail-name">{restaurant.name} {!isOpen && <span style={{ color: '#EF4444', fontSize: 14 }}>(Closed)</span>}</div>
         <div className="detail-meta">
           <span><FiStar /> {restaurant.rating || '4.0'}</span>
           <span><FiClock /> {restaurant.avg_prep_time || 25} min</span>
@@ -139,12 +147,11 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
             <div className="menu-category-name">{category}</div>
             {items.map(item => {
               const qty = getQty(item.id);
+              const fallbackItemImg = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80";
               return (
-                <div key={item.id} className="menu-item">
+                <div key={item.id} className="menu-item" style={{ opacity: isOpen ? 1 : 0.6 }}>
                   <div className="menu-item-img">
-                    {item.image
-                      ? <img src={item.image} alt={item.name} onError={(e) => { e.target.parentNode.innerHTML = '<div style="color:var(--muted);opacity:0.3"></div>'; }} />
-                      : <FiCoffee size={32} style={{ color: 'var(--muted)', opacity: 0.3 }} />}
+                    <img src={item.image || fallbackItemImg} alt={item.name} onError={(e) => { e.target.src = fallbackItemImg; }} />
                   </div>
                   <div className="menu-item-body">
                     {item.isBestseller && <div className="bestseller-badge">⭐ Bestseller</div>}
@@ -155,14 +162,18 @@ const RestaurantDetailPage = ({ restaurantId, onNavigate }) => {
                     {item.description && <div className="menu-item-desc">{item.description}</div>}
                     <div className="menu-item-footer">
                       <div className="menu-item-price">₹{item.price}</div>
-                      {qty === 0 ? (
-                        <button className="add-btn" onClick={() => addItem(restaurant.id, restaurant.name, item)}><FiPlus size={18}/></button>
+                      {isOpen ? (
+                        qty === 0 ? (
+                          <button className="add-btn" onClick={() => addItem(restaurant.id, restaurant.name, item)}><FiPlus size={18}/></button>
+                        ) : (
+                          <div className="qty-ctrl">
+                            <button className="qty-btn" onClick={() => removeItem(item.id)}><FiMinus size={14}/></button>
+                            <span className="qty-num">{qty}</span>
+                            <button className="qty-btn" onClick={() => addItem(restaurant.id, restaurant.name, item)}><FiPlus size={14}/></button>
+                          </div>
+                        )
                       ) : (
-                        <div className="qty-ctrl">
-                          <button className="qty-btn" onClick={() => removeItem(item.id)}><FiMinus size={14}/></button>
-                          <span className="qty-num">{qty}</span>
-                          <button className="qty-btn" onClick={() => addItem(restaurant.id, restaurant.name, item)}><FiPlus size={14}/></button>
-                        </div>
+                        <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>Unavailable</div>
                       )}
                     </div>
                   </div>

@@ -55,6 +55,8 @@ export const authApi = {
   register: (data) => api.post('/api/auth/register', data),
   login: (data) => api.post('/api/auth/login', data),
   logout: () => api.post('/api/auth/logout', {}),
+  changePassword: (old_password, new_password) => api.post('/api/auth/change-password', { old_password, new_password }),
+  toggle2FA: (enabled) => api.post('/api/auth/toggle-2fa', { enabled }),
 };
 
 // ─── Dashboard ──────────────────────────────────────────────

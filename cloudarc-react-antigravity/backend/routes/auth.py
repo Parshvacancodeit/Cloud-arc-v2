@@ -2,7 +2,8 @@ import json
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from database import query_db, execute_db
-from auth_middleware import generate_token
+from auth_middleware import generate_token, require_auth
+from flask import g
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -122,3 +123,36 @@ def login():
 def logout():
     # JWT is stateless — client discards token
     return jsonify({'message': 'Logged out successfully'})
+
+
+@auth_bp.route('/api/auth/change-password', methods=['POST'])
+@require_auth
+def change_password():
+    data = request.get_json(silent=True) or {}
+    old_pw = data.get('old_password')
+    new_pw = data.get('new_password')
+
+    if not old_pw or not new_pw:
+        return jsonify({'message': 'Old and new passwords are required'}), 400
+
+    user = query_db('SELECT * FROM users WHERE id = ?', [g.user_id], one=True)
+    if not user or not check_password_hash(user['password_hash'], old_pw):
+        return jsonify({'message': 'Incorrect old password'}), 401
+
+    if len(new_pw) < 6:
+        return jsonify({'message': 'New password must be at least 6 characters'}), 400
+
+    new_hash = generate_password_hash(new_pw)
+    execute_db('UPDATE users SET password_hash = ? WHERE id = ?', [new_hash, g.user_id])
+    return jsonify({'message': 'Password updated successfully'})
+
+
+@auth_bp.route('/api/auth/toggle-2fa', methods=['POST'])
+@require_auth
+def toggle_2fa():
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get('enabled', False))
+    # In a real app, we would generate/verify a TOTP secret here.
+    # For this project, we'll toggle a flag.
+    execute_db('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [1 if enabled else 0, g.user_id])
+    return jsonify({'message': f'2FA {"enabled" if enabled else "disabled"} successfully'})

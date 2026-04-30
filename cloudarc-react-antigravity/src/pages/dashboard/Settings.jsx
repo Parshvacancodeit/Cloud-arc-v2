@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiUser, FiLock, FiBell, FiMapPin, FiGlobe, FiSave, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
-import { settingsApi } from '../../services/api';
+import { 
+  FiUser, FiLock, FiBell, FiMapPin, FiGlobe, FiSave, 
+  FiAlertCircle, FiRefreshCw, FiCheckCircle, FiX, 
+  FiShield, FiDatabase, FiCode, FiArrowRight 
+} from 'react-icons/fi';
+import { settingsApi, authApi } from '../../services/api';
 import '../../styles/Settings.css';
 
 const DEFAULT_HOURS = {
@@ -22,12 +26,17 @@ const Settings = () => {
   const [error, setError] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  // Security Modals
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [oldPass, setOldPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [passSaving, setPassSaving] = useState(false);
+
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await settingsApi.get(restaurantId);
-      // Map API (snake_case) to local state
       setSettings({
         kitchenName: data.name || '',
         ownerName: data.owner_name || '',
@@ -52,8 +61,8 @@ const Settings = () => {
         swiggyConnected: data.swiggy_connected ?? false,
         uberEatsConnected: data.uber_eats_connected ?? false,
         operatingHours: data.operating_hours || DEFAULT_HOURS,
+        isTwoFactorEnabled: data.two_factor_enabled ?? false,
       });
-      // Sync prep time to localStorage so KanbanBoard surge timer is accurate
       if (data.avg_prep_time) {
         localStorage.setItem('avg_prep_time', String(data.avg_prep_time));
       }
@@ -101,7 +110,6 @@ const Settings = () => {
         low_stock_alerts: settings.lowStockAlerts,
         peak_hour_reminders: settings.peakHourReminders,
         operating_hours: settings.operatingHours,
-        // BUGFIX: Integration flags now included so they persist on Save
         zomato_connected: settings.zomatoConnected,
         swiggy_connected: settings.swiggyConnected,
         uber_eats_connected: settings.uberEatsConnected,
@@ -117,21 +125,28 @@ const Settings = () => {
     }
   };
 
-  // BUGFIX: Connect/Disconnect button calls the dedicated PATCH endpoint immediately
-  // so the integration status persists to the DB without requiring the user to hit Save.
-  const PLATFORM_KEY_MAP = {
-    zomatoConnected: 'zomato',
-    swiggyConnected: 'swiggy',
-    uberEatsConnected: 'uber_eats',
+  const handlePassChange = async () => {
+    if (!oldPass || !newPass) return alert('Both fields required');
+    setPassSaving(true);
+    try {
+      await authApi.changePassword(oldPass, newPass);
+      alert('Password updated successfully!');
+      setShowPassModal(false);
+      setOldPass(''); setNewPass('');
+    } catch (err) {
+      alert(err.message || 'Failed to update password');
+    } finally {
+      setPassSaving(false);
+    }
   };
 
-  const handleIntegrationToggle = async (field, newValue) => {
-    handleInputChange(field, newValue); // Optimistic UI update
+  const handleToggle2FA = async () => {
+    const newVal = !settings.isTwoFactorEnabled;
     try {
-      await settingsApi.toggleIntegration(restaurantId, PLATFORM_KEY_MAP[field], newValue);
+      await authApi.toggle2FA(newVal);
+      setSettings(prev => ({ ...prev, isTwoFactorEnabled: newVal }));
     } catch (err) {
-      handleInputChange(field, !newValue); // Revert on failure
-      alert('Failed to update integration: ' + err.message);
+      alert('Failed to toggle 2FA');
     }
   };
 
@@ -139,7 +154,6 @@ const Settings = () => {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: FiUser },
     { id: 'business', label: 'Business', icon: FiMapPin },
-    { id: 'notifications', label: 'Notifications', icon: FiBell },
     { id: 'integrations', label: 'Integrations', icon: FiGlobe },
     { id: 'hours', label: 'Operating Hours', icon: FiAlertCircle },
     { id: 'security', label: 'Security', icon: FiLock },
@@ -154,16 +168,6 @@ const Settings = () => {
     </div>
   );
 
-  if (error || !settings) return (
-    <div className="settings-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px' }}>
-      <div style={{ textAlign: 'center' }}>
-        <FiAlertCircle style={{ width: 32, height: 32, color: '#FF5722', marginBottom: 12 }} />
-        <p style={{ color: '#64748B', marginBottom: 16 }}>{error}</p>
-        <button onClick={fetchSettings} style={{ padding: '8px 20px', background: '#00ADB5', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Retry</button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="settings-container">
       <div className="settings-header">
@@ -173,11 +177,7 @@ const Settings = () => {
         </button>
       </div>
 
-      {showSuccess && (
-        <div className="success-banner">
-          <FiAlertCircle /><span>Settings saved successfully!</span>
-        </div>
-      )}
+      {showSuccess && <div className="success-banner"><FiCheckCircle /><span>Settings saved successfully!</span></div>}
 
       <div className="settings-layout">
         <div className="settings-sidebar">
@@ -194,7 +194,12 @@ const Settings = () => {
               <h2>Kitchen Profile</h2>
               <p className="section-description">Update your kitchen information visible to customers</p>
               <div className="form-grid">
-                {[['kitchenName', 'Kitchen Name', 'text'], ['ownerName', 'Owner Name', 'text'], ['email', 'Email', 'email'], ['phone', 'Phone', 'tel']].map(([field, label, type]) => (
+                {[
+                  ['kitchenName', 'Kitchen Name', 'text'],
+                  ['ownerName', 'Owner Name', 'text'],
+                  ['email', 'Email', 'email'],
+                  ['phone', 'Phone', 'tel']
+                ].map(([field, label, type]) => (
                   <div key={field} className="form-group">
                     <label>{label}</label>
                     <input type={type} value={settings[field]} onChange={(e) => handleInputChange(field, e.target.value)} />
@@ -203,7 +208,7 @@ const Settings = () => {
                 <div className="form-group full-width"><label>Address</label><input type="text" value={settings.address} onChange={(e) => handleInputChange('address', e.target.value)} /></div>
                 {[['city', 'City'], ['state', 'State'], ['pincode', 'PIN Code']].map(([field, label]) => (
                   <div key={field} className="form-group">
-                    <label>{label}{field === 'pincode' && <span style={{ fontSize: '11px', color: '#00ADB5', fontWeight: 400, marginLeft: 4 }}>— used by customer app</span>}</label>
+                    <label>{label}</label>
                     <input type="text" value={settings[field]} onChange={(e) => handleInputChange(field, e.target.value)} />
                   </div>
                 ))}
@@ -214,7 +219,7 @@ const Settings = () => {
           {activeTab === 'business' && (
             <div className="settings-section">
               <h2>Business Settings</h2>
-              <p className="section-description">Configure your business details</p>
+              <p className="section-description">Configure your business details and operational capacity</p>
               <div className="form-grid">
                 <div className="form-group"><label>GST Number</label><input type="text" value={settings.gstNumber} onChange={(e) => handleInputChange('gstNumber', e.target.value)} /></div>
                 <div className="form-group"><label>FSSAI License</label><input type="text" value={settings.fssaiLicense} onChange={(e) => handleInputChange('fssaiLicense', e.target.value)} /></div>
@@ -225,20 +230,24 @@ const Settings = () => {
             </div>
           )}
 
-          {activeTab === 'notifications' && (
+          {activeTab === 'integrations' && (
             <div className="settings-section">
-              <h2>Notifications</h2>
-              <p className="section-description">Control how you receive alerts</p>
-              <div className="toggle-list">
+              <h2>Platform Integrations</h2>
+              <p className="section-description">Manage your delivery platform connections</p>
+              
+              <div className="integration-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {[
-                  ['orderNotifications', 'Order Notifications', 'Get notified for new orders'],
-                  ['emailNotifications', 'Email Notifications', 'Receive updates via email'],
-                  ['smsNotifications', 'SMS Notifications', 'Get SMS alerts for critical updates'],
-                  ['lowStockAlerts', 'Low Stock Alerts', 'Alert when inventory is running low'],
-                  ['peakHourReminders', 'Peak Hour Reminders', 'Get notified before peak hours'],
-                ].map(([field, title, desc]) => (
-                  <div key={field} className="toggle-item">
-                    <div><h4>{title}</h4><p>{desc}</p></div>
+                  ['zomatoConnected', 'Zomato', 'Sync orders from Zomato', '#E23744', 'Z'],
+                  ['swiggyConnected', 'Swiggy', 'Sync orders from Swiggy', '#FC8019', 'S'],
+                ].map(([field, name, desc, color, letter]) => (
+                  <div key={field} className="integration-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', border: '1px solid rgba(0,173,181,0.1)', borderRadius: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 10, background: color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800 }}>{letter}</div>
+                      <div>
+                        <h4 style={{ margin: 0, fontWeight: 700 }}>{name}</h4>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748B' }}>{desc}</p>
+                      </div>
+                    </div>
                     <label className="toggle-switch">
                       <input type="checkbox" checked={settings[field]} onChange={(e) => handleInputChange(field, e.target.checked)} />
                       <span className="toggle-slider"></span>
@@ -246,39 +255,52 @@ const Settings = () => {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
 
-          {activeTab === 'integrations' && (
-            <div className="settings-section">
-              <h2>Platform Integrations</h2>
-              <p className="section-description">Manage and sync your delivery platform connections</p>
-              <div className="integration-list">
-                {[
-                  ['zomatoConnected', 'Zomato', 'Sync menu/orders from Zomato', '#E23744', 'Z'],
-                  ['swiggyConnected', 'Swiggy', 'Sync menu/orders from Swiggy', '#FC8019', 'S'],
-                  ['uberEatsConnected', 'Uber Eats', 'Sync menu/orders from Uber Eats', '#06C167', 'U'],
-                ].map(([field, name, desc, color, letter]) => (
-                  <div key={field} className={`integration-card ${settings[field] ? 'connected' : ''}`}>
-                    <div className="integration-info">
-                      <div className="integration-icon" style={{ background: color, boxShadow: `0 4px 12px ${color}40` }}>{letter}</div>
-                      <div>
-                        <h4>{name}</h4>
-                        <p>{desc}</p>
-                      </div>
-                    </div>
-                    <div className="integration-status">
-                      {settings[field] ? (
-                        <>
-                          <span className="status-badge connected">Live</span>
-                          <button className="btn-secondary small" onClick={() => handleIntegrationToggle(field, false)}>Disconnect</button>
-                        </>
-                      ) : (
-                        <button className="btn-primary small" onClick={() => handleIntegrationToggle(field, true)}>Connect Account</button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              {/* Technical API Mapping Panel */}
+              <div className="mapping-panel">
+                <div className="mapping-header">
+                  <FiCode /> <span>CloudArc API Normalization Engine</span>
+                </div>
+                <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  The CloudArc Integrator standardizes payloads from various sources into a unified structure. 
+                  This allows your kitchen to handle orders from Zomato, Swiggy, and direct apps using a single, consistent API.
+                </p>
+                <table className="mapping-table">
+                  <thead>
+                    <tr>
+                      <th>Source Parameter</th>
+                      <th></th>
+                      <th>Standard CloudArc Key</th>
+                      <th>Origin</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="source-param">order_id</td>
+                      <td><FiArrowRight size={10}/></td>
+                      <td className="standard-param">order_number</td>
+                      <td><span className="app-badge">Zomato</span></td>
+                    </tr>
+                    <tr>
+                      <td className="source-param">order_reference</td>
+                      <td><FiArrowRight size={10}/></td>
+                      <td className="standard-param">order_number</td>
+                      <td><span className="app-badge">Swiggy</span></td>
+                    </tr>
+                    <tr>
+                      <td className="source-param">customer_full_name</td>
+                      <td><FiArrowRight size={10}/></td>
+                      <td className="standard-param">customer_name</td>
+                      <td><span className="app-badge">Zomato</span></td>
+                    </tr>
+                    <tr>
+                      <td className="source-param">cart_items_json</td>
+                      <td><FiArrowRight size={10}/></td>
+                      <td className="standard-param">items</td>
+                      <td><span className="app-badge">Unified</span></td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
@@ -286,24 +308,31 @@ const Settings = () => {
           {activeTab === 'hours' && (
             <div className="settings-section">
               <h2>Operating Hours</h2>
-              <p className="section-description">Set your kitchen working hours</p>
-              <div className="hours-list">
+              <p className="section-description">Manage your weekly kitchen availability</p>
+              <div className="hours-grid">
                 {days.map(day => (
-                  <div key={day} className="hours-item">
-                    <div className="day-label">
-                      <span>{day.charAt(0).toUpperCase() + day.slice(1)}</span>
-                      <label className="checkbox-label">
+                  <div key={day} className={`hour-card ${settings.operatingHours[day]?.closed ? 'closed' : ''}`}>
+                    <div className="hour-card-header">
+                      <span className="day-name">{day}</span>
+                      <label className="toggle-switch">
                         <input type="checkbox" checked={!settings.operatingHours[day]?.closed} onChange={(e) => handleHoursChange(day, 'closed', !e.target.checked)} />
-                        <span>Open</span>
+                        <span className="toggle-slider"></span>
                       </label>
                     </div>
                     {!settings.operatingHours[day]?.closed ? (
-                      <div className="time-inputs">
-                        <input type="time" value={settings.operatingHours[day]?.open || '09:00'} onChange={(e) => handleHoursChange(day, 'open', e.target.value)} />
-                        <span>to</span>
-                        <input type="time" value={settings.operatingHours[day]?.close || '22:00'} onChange={(e) => handleHoursChange(day, 'close', e.target.value)} />
+                      <div className="time-inputs-group">
+                        <div className="time-row">
+                          <label>Open</label>
+                          <input type="time" value={settings.operatingHours[day]?.open || '09:00'} onChange={(e) => handleHoursChange(day, 'open', e.target.value)} />
+                        </div>
+                        <div className="time-row">
+                          <label>Close</label>
+                          <input type="time" value={settings.operatingHours[day]?.close || '22:00'} onChange={(e) => handleHoursChange(day, 'close', e.target.value)} />
+                        </div>
                       </div>
-                    ) : <span className="closed-badge">Closed</span>}
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '1rem 0', color: '#94a3b8', fontSize: '0.85rem', fontWeight: 600 }}>Closed for the day</div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -313,31 +342,53 @@ const Settings = () => {
           {activeTab === 'security' && (
             <div className="settings-section">
               <h2>Security Settings</h2>
-              <p className="section-description">Manage your account security</p>
+              <p className="section-description">Manage your account security and authentication</p>
               <div className="security-options">
                 <div className="security-card">
                   <FiLock className="security-icon" />
                   <h4>Change Password</h4>
-                  <p>Update your account password</p>
-                  <button className="btn-secondary">Change Password</button>
+                  <p>Regularly update your password to keep your kitchen data safe.</p>
+                  <button className="btn-secondary" onClick={() => setShowPassModal(true)}>Update Password</button>
                 </div>
                 <div className="security-card">
-                  <FiAlertCircle className="security-icon" />
-                  <h4>Two-Factor Authentication</h4>
-                  <p>Add an extra layer of security</p>
-                  <button className="btn-primary">Enable 2FA</button>
-                </div>
-                <div className="security-card">
-                  <FiUser className="security-icon" />
-                  <h4>Active Sessions</h4>
-                  <p>Manage your active login sessions</p>
-                  <button className="btn-secondary">View Sessions</button>
+                  <FiShield className="security-icon" />
+                  <div className={`status-indicator ${settings.isTwoFactorEnabled ? 'active' : 'inactive'}`}>
+                    {settings.isTwoFactorEnabled ? 'Enabled' : 'Disabled'}
+                  </div>
+                  <h4>Two-Factor Auth</h4>
+                  <p>Add an extra layer of security to your login process.</p>
+                  <button className={settings.isTwoFactorEnabled ? 'btn-secondary' : 'btn-primary'} onClick={handleToggle2FA}>
+                    {settings.isTwoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                  </button>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      {showPassModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Update Password</h3>
+              <button className="icon-btn" onClick={() => setShowPassModal(false)}><FiX /></button>
+            </div>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label>Current Password</label>
+              <input type="password" value={oldPass} onChange={e => setOldPass(e.target.value)} />
+            </div>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label>New Password</label>
+              <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)} />
+            </div>
+            <button className="btn-primary full-width" style={{ width: '100%' }} onClick={handlePassChange} disabled={passSaving}>
+              {passSaving ? 'Updating...' : 'Change Password'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

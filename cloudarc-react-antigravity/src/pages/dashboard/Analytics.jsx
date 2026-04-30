@@ -57,7 +57,22 @@ const Analytics = () => {
 
   const maxRevenue = Math.max(...revenueChart.map(d => d.revenue || 0), 1);
   const maxHourly  = Math.max(...hourlyData.map(d => d.count || 0), 1);
-  const totalPlatformOrders = platformData.reduce((sum, p) => sum + (p.count || 0), 0);
+  
+  // Group platforms into "Customer App" and "Partner App"
+  const groupedPlatformMap = platformData.reduce((acc, curr) => {
+    const name = (curr.platform || '').toLowerCase();
+    const group = (name.includes('partner') || name.includes('zomato') || name.includes('swiggy') || name.includes('uber'))
+      ? 'Partner App'
+      : 'Customer App';
+    
+    if (!acc[group]) acc[group] = { platform: group, count: 0, revenue: 0 };
+    acc[group].count += curr.count;
+    acc[group].revenue += curr.revenue;
+    return acc;
+  }, {});
+  
+  const groupedPlatformData = Object.values(groupedPlatformMap).sort((a, b) => b.count - a.count);
+  const totalPlatformOrders = groupedPlatformData.reduce((sum, p) => sum + p.count, 0);
 
   const peakHour = perf.peak_hour ?? null;
   const peakLabel = peakHour
@@ -90,7 +105,10 @@ const Analytics = () => {
         {/* Revenue — large card with mini bar chart */}
         <div className="metric-card large">
           <div className="metric-header">
-            <span className="metric-label">Total Revenue</span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="metric-label">Total Revenue</span>
+              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>Gross earnings for the period</span>
+            </div>
             <FiTrendingUp className="trend-icon up" />
           </div>
           <div className="metric-value">{fmt(summary.total_revenue)}</div>
@@ -166,8 +184,12 @@ const Analytics = () => {
               <div key={idx} className="hour-column">
                 <div className="hour-bar"
                   style={{
-                    height: `${(item.count / maxHourly) * 100}%`,
-                    background: item.count >= maxHourly * 0.8 ? '#FF5722' : item.count >= maxHourly * 0.5 ? '#f59e0b' : '#00ADB5'
+                    height: `${Math.max((item.count / maxHourly) * 100, 5)}%`,
+                    width: '12px',
+                    borderRadius: '4px 4px 0 0',
+                    background: item.count >= maxHourly * 0.8 ? '#FF5722' : item.count >= maxHourly * 0.5 ? '#f59e0b' : '#00ADB5',
+                    boxShadow: '0 -2px 10px rgba(0,173,181,0.2)',
+                    transition: 'height 0.3s ease'
                   }}
                   title={`${item.hour}: ${item.count} orders`}
                 />
@@ -183,19 +205,19 @@ const Analytics = () => {
             <span className="chart-subtitle">{totalPlatformOrders} total orders</span>
           </div>
           <div className="platform-chart">
-            {platformData.length === 0 ? (
+            {groupedPlatformData.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#94A3B8', padding: '24px' }}>No platform data for this period</p>
-            ) : platformData.map((platform, idx) => {
+            ) : groupedPlatformData.map((platform, idx) => {
               const p = totalPlatformOrders > 0 ? ((platform.count / totalPlatformOrders) * 100).toFixed(1) : 0;
-              const colors = ['#E23744', '#FC8019', '#06C167', '#00ADB5', '#8B5CF6'];
+              const colors = platform.platform === 'Customer App' ? ['#00ADB5'] : ['#8B5CF6'];
               return (
                 <div key={idx} className="platform-row">
                   <div className="platform-info">
-                    <div className="platform-color" style={{ background: colors[idx % colors.length] }} />
+                    <div className="platform-color" style={{ background: colors[0] }} />
                     <span className="platform-name">{platform.platform}</span>
                   </div>
                   <div className="platform-bar-container">
-                    <div className="platform-bar" style={{ width: `${p}%`, background: colors[idx % colors.length] }} />
+                    <div className="platform-bar" style={{ width: `${p}%`, background: colors[0] }} />
                   </div>
                   <div className="platform-stats">
                     <span className="platform-percentage">{p}%</span>

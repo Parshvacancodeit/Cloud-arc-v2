@@ -77,13 +77,17 @@ const RestaurantListPage = ({ pincode, onNavigate }) => {
 
       <div className="restaurant-list">
         {filtered.map(r => {
-          const isOpen = isRestaurantOpen(r.operating_hours);
+          const isOpen = r.is_active && isRestaurantOpen(r.operating_hours);
+          const fallbackImg = "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&q=80"; // Premium Pizza/Food fallback
           return (
-            <div key={r.id} className="restaurant-card" onClick={() => onNavigate('detail', { restaurantId: r.id })}>
+            <div key={r.id} className={`restaurant-card ${!isOpen ? 'closed-restaurant' : ''}`} onClick={() => onNavigate('detail', { restaurantId: r.id })}>
               <div className="r-img">
-                {r.logo_url
-                  ? <img src={r.logo_url} alt={r.name} onError={(e) => { e.target.parentNode.innerHTML = '<div style="color: var(--muted); opacity: 0.3"><svg/></div>'; }} />
-                  : <FiImage size={40} style={{ color: 'var(--muted)', opacity: 0.3 }} />}
+                <img 
+                  src={r.logo_url || fallbackImg} 
+                  alt={r.name} 
+                  style={{ filter: !isOpen ? 'grayscale(100%)' : 'none' }}
+                  onError={(e) => { e.target.src = fallbackImg; }} 
+                />
               </div>
               <div className="r-body">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
