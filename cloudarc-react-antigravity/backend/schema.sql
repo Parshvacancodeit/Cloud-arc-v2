@@ -96,6 +96,9 @@ CREATE TABLE IF NOT EXISTS orders (
     notes            TEXT NOT NULL DEFAULT '',
     assigned_to      TEXT NOT NULL DEFAULT '',
     customer_id      INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    accepted_at      TEXT,
+    ready_at         TEXT,
+    customer_message TEXT,
     created_at       TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
